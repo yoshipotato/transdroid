@@ -3,7 +3,7 @@ name: Build full debug APK
 on:
   workflow_dispatch:
   push:
-    branches: [transdroid3]
+    branches: [transdroid3, transdroid3-mod]
 
 jobs:
   build:
