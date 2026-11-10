@@ -1,0 +1,30 @@
+name: Build full debug APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [transdroid3]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Assemble full debug APK
+        run: ./gradlew :app:assembleFullDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: transdroid-full-debug
+          path: app/build/outputs/apk/full/debug/app-full-debug.apk

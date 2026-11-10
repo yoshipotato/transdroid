@@ -1,0 +1,133 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Tag to release (created at the dispatched ref if it doesn't exist)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      # Secrets can't be tested in step conditions directly
+      HAS_SIGNING: ${{ secrets.KEYSTORE_BASE64 != '' }}
+      HAS_PLAY_ACCOUNT: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON != '' }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Full history and tags, to find the previous release for the changelog link
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Set up release signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > transdroid-release.keystore
+            {
+              echo "storeFile=transdroid-release.keystore"
+              echo "storePassword=$KEYSTORE_PASSWORD"
+              echo "keyAlias=$KEY_ALIAS"
+              echo "keyPassword=$KEY_PASSWORD"
+            } > keystore.properties
+            echo "Release signing configured"
+          else
+            echo "No signing secrets; building an unsigned APK"
+          fi
+
+      - name: Test
+        run: ./gradlew :protocol:test :app:testFullDebugUnitTest
+
+      # "full" is attached to the GitHub release, always as transdroid.apk, so one permanent
+      # link serves the newest release:
+      # https://github.com/erickok/transdroid/releases/latest/download/transdroid.apk
+      # (GitHub's "latest" skips pre-releases, so betas never replace it).
+      # "lite" is Transdrone, published to Google Play below.
+      - name: Assemble APKs
+        run: |
+          ./gradlew :app:assembleFullRelease :app:assembleLiteRelease
+          cp app/build/outputs/apk/full/release/app-full-release.apk transdroid.apk
+
+      # The release notes are the same as the in-app "What's new" and F-Droid changelog for
+      # this versionCode, plus a link to the full diff since the previous release
+      - name: Write release notes
+        env:
+          TAG: ${{ inputs.tag_name || github.ref_name }}
+        run: |
+          code=$(sed -n 's/^ *versionCode = \([0-9]*\).*/\1/p' app/build.gradle.kts)
+          notes="fastlane/metadata/android/en-US/changelogs/$code.txt"
+          if [ ! -f "$notes" ]; then
+            echo "::error::No changelog for versionCode $code; add $notes before releasing"
+            exit 1
+          fi
+          cp "$notes" release-notes.md
+          # The previous release is the nearest tag below this one - or below HEAD when a
+          # dispatched run is about to create the tag
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then base="$TAG^"; else base="HEAD"; fi
+          previous=$(git describe --tags --abbrev=0 --match 'v*' "$base" 2>/dev/null || true)
+          if [ -n "$previous" ]; then
+            printf '\n**Full Changelog**: %s/%s/compare/%s...%s\n' \
+              "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$previous" "$TAG" >> release-notes.md
+          fi
+          cat release-notes.md
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ inputs.tag_name || github.ref_name }}
+          files: transdroid.apk
+          body_path: release-notes.md
+          # Any suffixed version (3.0.0-alpha6, -beta1, -rc1) is a pre-release
+          prerelease: ${{ contains(inputs.tag_name || github.ref_name, '-') }}
+
+      # Play's "What's new" for Transdrone: its own changelog when the full one mentions
+      # features Transdrone doesn't have (RSS, search, the update check), else the shared one.
+      - name: Write Play release notes
+        if: env.HAS_SIGNING == 'true' && env.HAS_PLAY_ACCOUNT == 'true'
+        run: |
+          code=$(sed -n 's/^ *versionCode = \([0-9]*\).*/\1/p' app/build.gradle.kts)
+          notes="app/src/lite/fastlane/metadata/android/en-US/changelogs/$code.txt"
+          [ -f "$notes" ] || notes="fastlane/metadata/android/en-US/changelogs/$code.txt"
+          chars=$(wc -m < "$notes")
+          if [ "$chars" -gt 500 ]; then
+            echo "::error::$notes is $chars characters; Play allows 500"
+            exit 1
+          fi
+          mkdir -p play-whatsnew
+          cp "$notes" play-whatsnew/whatsnew-en-US
+          echo "Using $notes"
+
+      # Needs the PLAY_SERVICE_ACCOUNT_JSON secret: a Google Cloud service account key with
+      # release permissions for Transdrone in the Play Console. Pre-releases go to the open
+      # testing (beta) track, final versions to production.
+      - name: Upload Transdrone to Google Play
+        if: env.HAS_SIGNING == 'true' && env.HAS_PLAY_ACCOUNT == 'true'
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: org.transdroid.lite
+          releaseFiles: app/build/outputs/apk/lite/release/app-lite-release.apk
+          mappingFile: app/build/outputs/mapping/liteRelease/mapping.txt
+          track: ${{ contains(inputs.tag_name || github.ref_name, '-') && 'beta' || 'production' }}
+          status: completed
+          whatsNewDirectory: play-whatsnew

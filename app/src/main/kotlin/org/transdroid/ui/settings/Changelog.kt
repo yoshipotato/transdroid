@@ -1,0 +1,155 @@
+/*
+ * Copyright 2010-2026 Eric Kok et al.
+ *
+ * Transdroid is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Transdroid is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Transdroid. If not, see <https://www.gnu.org/licenses/>.
+ */
+package org.transdroid.ui.settings
+
+enum class ChangeKind { NEW, IMPROVED, FIXED }
+
+data class ChangelogEntry(val kind: ChangeKind, val text: String)
+
+data class Release(val version: String, val date: String, val changes: List<ChangelogEntry>)
+
+/**
+ * The in-app "What's new" history, newest release first - this is hand-maintained, there is no
+ * generator. Add one [Release] here (with a handful of user-facing bullets, not every commit)
+ * once a version is actually tagged and released, not while it's still in development; the
+ * first item is shown with a "Latest" badge regardless of what BuildConfig.VERSION_NAME says.
+ */
+val CHANGELOG: List<Release> = listOf(
+    Release(
+        version = "3.0.0-beta4",
+        date = "November 2026",
+        changes = listOf(
+            ChangelogEntry(ChangeKind.NEW, "Long-press a torrent to select it, then start, pause, check, label, move or remove one or many at once; this replaces the swipe gestures"),
+            ChangelogEntry(ChangeKind.IMPROVED, "The \"No label\" filter is always available, also when every torrent has a label"),
+            ChangelogEntry(ChangeKind.IMPROVED, "When filters match no torrents, the list says so and offers to clear them all"),
+            ChangelogEntry(ChangeKind.FIXED, "The set label and location sheets opened half-way, hiding their buttons"),
+        ),
+    ),
+    Release(
+        version = "3.0.0-beta3",
+        date = "November 2026",
+        changes = listOf(
+            ChangelogEntry(ChangeKind.NEW, "A torrent's label shows as a coloured pill in the list and on the details screen"),
+            ChangelogEntry(ChangeKind.IMPROVED, "The filter menu closes after switching server from it"),
+            ChangelogEntry(ChangeKind.IMPROVED, "Swiping a torrent to start/pause or remove it slides the row back smoothly"),
+            ChangelogEntry(ChangeKind.IMPROVED, "Updated to the latest Android libraries"),
+        ),
+    ),
+    Release(
+        version = "3.0.0-beta2",
+        date = "November 2026",
+        changes = listOf(
+            ChangelogEntry(ChangeKind.NEW, "Your status, label and tracker filters are remembered per server, also after restarting the app"),
+            ChangelogEntry(ChangeKind.NEW, "Builds from transdroid.org and GitHub check daily for a new version, which can be turned off in Settings"),
+            ChangelogEntry(ChangeKind.IMPROVED, "Notifications and themed launcher icons show the Transdroid badge"),
+        ),
+    ),
+    Release(
+        version = "3.0.0-beta1",
+        date = "October 2026",
+        changes = listOf(
+            ChangelogEntry(ChangeKind.NEW, "Upgrading from Transdroid 2 brings your servers and RSS feeds along"),
+            ChangelogEntry(ChangeKind.NEW, "Import a Transdroid 2 settings export from Settings > Backup"),
+            ChangelogEntry(ChangeKind.NEW, "New widget settings: pick each widget's server, sort order and whether to show inactive torrents"),
+            ChangelogEntry(ChangeKind.NEW, "Use local server settings on several Wi-Fi networks"),
+            ChangelogEntry(ChangeKind.IMPROVED, "Torrent list and details are drawn edge to edge, with the Add button clear of the navigation bar"),
+            ChangelogEntry(ChangeKind.FIXED, "A widget always showed the first server instead of the one picked for it"),
+            ChangelogEntry(ChangeKind.FIXED, "The last torrent in the list sat under the Add button"),
+        ),
+    ),
+    Release(
+        version = "3.0.0-alpha6",
+        date = "September 2026",
+        changes = listOf(
+            ChangelogEntry(ChangeKind.NEW, "Swipe a torrent right to start/pause it, left to remove it"),
+            ChangelogEntry(ChangeKind.NEW, "Play/pause buttons on the home screen widget"),
+            ChangelogEntry(ChangeKind.IMPROVED, "Transmission accepts its web interface URL"),
+            ChangelogEntry(ChangeKind.IMPROVED, "Clearer errors when a server refuses to connect"),
+            ChangelogEntry(ChangeKind.IMPROVED, "Lighter refreshes with thousands of torrents"),
+            ChangelogEntry(ChangeKind.FIXED, "qBittorrent 5.2 username/password login"),
+            ChangelogEntry(ChangeKind.FIXED, "Custom headers (e.g. Cloudflare Access) breaking logins"),
+            ChangelogEntry(ChangeKind.FIXED, "Deluge reconnects after a daemon restart"),
+            ChangelogEntry(ChangeKind.FIXED, "Several rTorrent, Transmission, IPv6 and RSS issues"),
+        ),
+    ),
+    Release(
+        version = "3.0.0-alpha5",
+        date = "September 2026",
+        changes = listOf(
+            ChangelogEntry(ChangeKind.NEW, "Sort the Peers tab by speed, IP address or client"),
+            ChangelogEntry(ChangeKind.NEW, "Optional on-device country database shows a flag for every peer, even on clients that don't report it themselves"),
+            ChangelogEntry(ChangeKind.NEW, "Connect to qBittorrent 5.2+ using its Web UI API key instead of a username/password"),
+            ChangelogEntry(ChangeKind.IMPROVED, "Swipe between the details screen's Overview/Files/Trackers/Peers tabs"),
+            ChangelogEntry(ChangeKind.IMPROVED, "Torrent list sort order is remembered across app restarts, and changing it scrolls back to the top"),
+        ),
+    ),
+    Release(
+        version = "3.0.0-alpha4",
+        date = "September 2026",
+        changes = listOf(
+            ChangelogEntry(ChangeKind.NEW, "Peers tab on the details screen: client, country, progress and speed for connected peers"),
+            ChangelogEntry(ChangeKind.FIXED, "Adding a torrent from search could silently fail when the indexer needs its own login (e.g. a seedbox member area), separate from its API key"),
+            ChangelogEntry(ChangeKind.FIXED, "A torrent shown as \"Error\" but actually stopped now offers Start instead of only Pause"),
+        ),
+    ),
+    Release(
+        version = "3.0.0-alpha3",
+        date = "September 2026",
+        changes = listOf(
+            ChangelogEntry(ChangeKind.NEW, "Filter the torrent list by tracker"),
+            ChangelogEntry(ChangeKind.NEW, "Set a download location when adding a torrent, including from Search and RSS"),
+            ChangelogEntry(ChangeKind.NEW, "Redesigned Add torrent screen"),
+            ChangelogEntry(ChangeKind.NEW, "Home screen widget shows a scrollable list of running torrents; each widget instance can pick its own server"),
+            ChangelogEntry(ChangeKind.NEW, "Connect using different settings while on a chosen Wi-Fi network, e.g. a seedbox also reachable directly over the LAN"),
+            ChangelogEntry(ChangeKind.IMPROVED, "Details screen action icons use a consistent accent color"),
+            ChangelogEntry(ChangeKind.IMPROVED, "Location and label text wraps instead of truncating on the details Overview tab"),
+            ChangelogEntry(ChangeKind.IMPROVED, "Clearer Edit Server screen: leading icons, a password-reveal toggle, and better connection help wording"),
+            ChangelogEntry(ChangeKind.IMPROVED, "Widget uses the real app icon instead of a generic badge"),
+            ChangelogEntry(ChangeKind.FIXED, "Widget icon rendering too small"),
+            ChangelogEntry(ChangeKind.FIXED, "Tablet details placeholder styling and top bar status bar inset"),
+        ),
+    ),
+    Release(
+        version = "3.0.0-alpha2",
+        date = "September 2026",
+        changes = listOf(
+            ChangelogEntry(ChangeKind.NEW, "About screen with license, project links and a changelog, plus a donate link"),
+            ChangelogEntry(ChangeKind.NEW, "Set a torrent's label, or create a new one, from its details screen"),
+            ChangelogEntry(ChangeKind.NEW, "Verify data (force recheck) from the torrent details screen"),
+            ChangelogEntry(ChangeKind.NEW, "Alternative (\"turtle\") speed limits toggle for qBittorrent and Transmission"),
+            ChangelogEntry(ChangeKind.NEW, "Switch servers directly from the torrents list, and a redesigned app icon"),
+            ChangelogEntry(ChangeKind.NEW, "\"Send error report\" to get support or report a bug, modernized from Transdroid 2"),
+            ChangelogEntry(ChangeKind.IMPROVED, "Predictive back gesture now animates correctly"),
+            ChangelogEntry(ChangeKind.IMPROVED, "Redesigned empty states across the torrents list, RSS and search"),
+            ChangelogEntry(ChangeKind.IMPROVED, "Torrent details refresh immediately after pausing or starting"),
+            ChangelogEntry(ChangeKind.FIXED, "Deluge servers failed to load torrents with an \"Unknown method\" error"),
+            ChangelogEntry(ChangeKind.FIXED, "qBittorrent could get itself banned by retrying a failed login every poll"),
+        ),
+    ),
+    Release(
+        version = "3.0.0-alpha1",
+        date = "September 2026",
+        changes = listOf(
+            ChangelogEntry(ChangeKind.NEW, "Complete rebuild in Kotlin and Jetpack Compose"),
+            ChangelogEntry(ChangeKind.NEW, "RSS feeds, Torznab search, finished-torrent notifications and a home screen widget"),
+            ChangelogEntry(ChangeKind.NEW, "Certificate pinning, LAN server discovery, labels and per-file priorities"),
+            ChangelogEntry(ChangeKind.NEW, "Connect through login portals like Cloudflare Access, and add torrents paused"),
+            ChangelogEntry(ChangeKind.NEW, "Encrypted settings backup and restore"),
+            ChangelogEntry(ChangeKind.IMPROVED, "Clearer connection error messages and in-app connection help"),
+        ),
+    ),
+)

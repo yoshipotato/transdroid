@@ -1,0 +1,236 @@
+/*
+ * Copyright 2010-2026 Eric Kok et al.
+ *
+ * Transdroid is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Transdroid is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Transdroid. If not, see <https://www.gnu.org/licenses/>.
+ */
+package org.transdroid.data
+
+import android.content.Context
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
+import androidx.datastore.preferences.preferencesDataStore
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import kotlinx.serialization.json.Json
+import org.transdroid.data.legacy.LegacyImportSummary
+import org.transdroid.update.AppUpdates
+import org.transdroid.update.LatestRelease
+import org.transdroid.ui.torrents.TorrentFilter
+import org.transdroid.ui.torrents.TorrentFilters
+import org.transdroid.ui.torrents.TorrentSort
+
+private val Context.settingsDataStore by preferencesDataStore(name = "settings")
+
+/** Non-sensitive app preferences. */
+class SettingsRepository(private val context: Context) {
+
+    private val activeServerKey = stringPreferencesKey("active_server_id")
+    private val notifyFinishedKey = booleanPreferencesKey("notify_finished")
+    private val pollIntervalKey = intPreferencesKey("poll_interval_seconds")
+    private val peerSortKey = stringPreferencesKey("peer_sort")
+    private val torrentSortKey = stringPreferencesKey("torrent_sort")
+    private val torrentSortDescendingKey = booleanPreferencesKey("torrent_sort_descending")
+    private val legacyImportSummaryKey = stringPreferencesKey("legacy_import_summary")
+    private val checkUpdatesKey = booleanPreferencesKey("check_updates")
+    private val selectionHintSeenKey = booleanPreferencesKey("selection_hint_seen")
+    private val latestReleaseCodeKey = intPreferencesKey("latest_release_code")
+    private val latestReleaseNameKey = stringPreferencesKey("latest_release_name")
+    private val notifiedUpdateCodeKey = intPreferencesKey("notified_update_code")
+    private val nameFontScaleKey = floatPreferencesKey("name_font_scale")
+    private val detailFontScaleKey = floatPreferencesKey("detail_font_scale")
+
+    /** Multiplier for the torrent name text size on the list; 1 is the default size. */
+    val nameFontScale: Flow<Float> = context.settingsDataStore.data.map { it[nameFontScaleKey] ?: 1f }
+
+    suspend fun setNameFontScale(scale: Float) {
+        context.settingsDataStore.edit { it[nameFontScaleKey] = scale.coerceIn(FONT_SCALE_MIN, FONT_SCALE_MAX) }
+    }
+
+    /** Multiplier for the smaller detail text (progress, status, speeds) on the list. */
+    val detailFontScale: Flow<Float> = context.settingsDataStore.data.map { it[detailFontScaleKey] ?: 1f }
+
+    suspend fun setDetailFontScale(scale: Float) {
+        context.settingsDataStore.edit { it[detailFontScaleKey] = scale.coerceIn(FONT_SCALE_MIN, FONT_SCALE_MAX) }
+    }
+
+    val activeServerId: Flow<String?> = context.settingsDataStore.data.map { it[activeServerKey] }
+
+    suspend fun setActiveServer(profileId: String?) {
+        context.settingsDataStore.edit { settings ->
+            if (profileId == null) settings.remove(activeServerKey) else settings[activeServerKey] = profileId
+        }
+    }
+
+    /** How often the torrents list refreshes while on screen, in seconds. */
+    val pollIntervalSeconds: Flow<Int> =
+        context.settingsDataStore.data.map { it[pollIntervalKey] ?: DEFAULT_POLL_INTERVAL_SECONDS }
+
+    suspend fun setPollIntervalSeconds(seconds: Int) {
+        context.settingsDataStore.edit { it[pollIntervalKey] = seconds.coerceIn(POLL_INTERVAL_OPTIONS.first(), POLL_INTERVAL_OPTIONS.last()) }
+    }
+
+    /** The order connected peers are listed in on the torrent details Peers tab. */
+    val peerSort: Flow<PeerSort> = context.settingsDataStore.data.map { PeerSort.fromName(it[peerSortKey]) }
+
+    suspend fun setPeerSort(sort: PeerSort) {
+        context.settingsDataStore.edit { it[peerSortKey] = sort.name }
+    }
+
+    /** The field and direction the main torrent list is sorted by. */
+    val torrentSort: Flow<TorrentSort> = context.settingsDataStore.data.map { TorrentSort.fromName(it[torrentSortKey]) }
+    val torrentSortDescending: Flow<Boolean> =
+        context.settingsDataStore.data.map { it[torrentSortDescendingKey] ?: TorrentSort.DEFAULT.defaultDescending }
+
+    suspend fun setTorrentSort(sort: TorrentSort, descending: Boolean) {
+        context.settingsDataStore.edit {
+            it[torrentSortKey] = sort.name
+            it[torrentSortDescendingKey] = descending
+        }
+    }
+
+    /** The drawer filters last used on a server, restored when the app starts or switches to it. */
+    fun torrentFilters(profileId: String): Flow<TorrentFilters> = context.settingsDataStore.data.map { prefs ->
+        TorrentFilters(
+            status = TorrentFilter.fromName(prefs[filterStatusKey(profileId)]),
+            labels = prefs[filterLabelsKey(profileId)] ?: emptySet(),
+            trackers = prefs[filterTrackersKey(profileId)] ?: emptySet(),
+        )
+    }
+
+    suspend fun setTorrentFilters(profileId: String, filters: TorrentFilters) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[filterStatusKey(profileId)] = filters.status.name
+            prefs[filterLabelsKey(profileId)] = filters.labels
+            prefs[filterTrackersKey(profileId)] = filters.trackers
+        }
+    }
+
+    private fun filterStatusKey(profileId: String) = stringPreferencesKey("filter_status_$profileId")
+    private fun filterLabelsKey(profileId: String) = stringSetPreferencesKey("filter_labels_$profileId")
+    private fun filterTrackersKey(profileId: String) = stringSetPreferencesKey("filter_trackers_$profileId")
+
+    /** Whether the background finished-torrent check and its notifications are enabled. */
+    val notifyFinished: Flow<Boolean> = context.settingsDataStore.data.map { it[notifyFinishedKey] ?: false }
+
+    suspend fun setNotifyFinished(enabled: Boolean) {
+        context.settingsDataStore.edit { it[notifyFinishedKey] = enabled }
+    }
+
+    /** Whether the user has seen (or used) the long-press-to-select tip on the torrent list. */
+    val selectionHintSeen: Flow<Boolean> = context.settingsDataStore.data.map { it[selectionHintSeenKey] ?: false }
+
+    suspend fun setSelectionHintSeen() {
+        context.settingsDataStore.edit { it[selectionHintSeenKey] = true }
+    }
+
+    /** Whether to look for new releases; only offered where updatecheck_available is set. */
+    val checkUpdates: Flow<Boolean> = context.settingsDataStore.data.map { it[checkUpdatesKey] ?: true }
+
+    suspend fun setCheckUpdates(enabled: Boolean) {
+        context.settingsDataStore.edit { it[checkUpdatesKey] = enabled }
+    }
+
+    /** The newest release the last update check found, whether or not it's newer than this build. */
+    val latestRelease: Flow<LatestRelease?> = context.settingsDataStore.data.map { prefs ->
+        val code = prefs[latestReleaseCodeKey] ?: return@map null
+        LatestRelease(code, prefs[latestReleaseNameKey].orEmpty())
+    }
+
+    /**
+     * Stores what an update check found, and returns whether to notify about it (see
+     * [AppUpdates.shouldNotify]), marking it notified.
+     */
+    suspend fun recordLatestRelease(release: LatestRelease, installedVersionCode: Int): Boolean {
+        var notify = false
+        context.settingsDataStore.edit { prefs ->
+            prefs[latestReleaseCodeKey] = release.versionCode
+            prefs[latestReleaseNameKey] = release.versionName
+            if (AppUpdates.shouldNotify(release, installedVersionCode, prefs[notifiedUpdateCodeKey])) {
+                prefs[notifiedUpdateCodeKey] = release.versionCode
+                notify = true
+            }
+        }
+        return notify
+    }
+
+    /** The outcome of the last Transdroid 2 settings import, until the user has seen it. */
+    val legacyImportSummary: Flow<LegacyImportSummary?> = context.settingsDataStore.data.map { prefs ->
+        prefs[legacyImportSummaryKey]?.let {
+            try {
+                summaryJson.decodeFromString(LegacyImportSummary.serializer(), it)
+            } catch (e: Exception) {
+                null
+            }
+        }
+    }
+
+    suspend fun setLegacyImportSummary(summary: LegacyImportSummary?) {
+        context.settingsDataStore.edit { prefs ->
+            if (summary == null) {
+                prefs.remove(legacyImportSummaryKey)
+            } else {
+                prefs[legacyImportSummaryKey] = summaryJson.encodeToString(LegacyImportSummary.serializer(), summary)
+            }
+        }
+    }
+
+    /** Ids of torrents seen unfinished on the last background check, per server profile. */
+    fun unfinishedTorrentIds(profileId: String): Flow<Set<String>> =
+        context.settingsDataStore.data.map { it[unfinishedKey(profileId)] ?: emptySet() }
+
+    suspend fun setUnfinishedTorrentIds(profileId: String, ids: Set<String>) {
+        context.settingsDataStore.edit { it[unfinishedKey(profileId)] = ids }
+    }
+
+    private fun unfinishedKey(profileId: String) = stringSetPreferencesKey("unfinished_ids_$profileId")
+
+    /**
+     * Download locations the user has previously typed or picked when adding a torrent to this
+     * server, most-recently-used first - shown on the add-torrent screen as quick-pick chips so a
+     * full path rarely needs retyping. A plain delimited string (not a string set) because, unlike
+     * [unfinishedTorrentIds], the order itself is the point.
+     */
+    fun recentDownloadLocations(profileId: String): Flow<List<String>> =
+        context.settingsDataStore.data.map { prefs ->
+            prefs[recentLocationsKey(profileId)]?.split(RECENT_LOCATIONS_SEPARATOR)?.filter { it.isNotBlank() } ?: emptyList()
+        }
+
+    suspend fun addRecentDownloadLocation(profileId: String, location: String) {
+        if (location.isBlank()) return
+        context.settingsDataStore.edit { prefs ->
+            val key = recentLocationsKey(profileId)
+            val existing = prefs[key]?.split(RECENT_LOCATIONS_SEPARATOR)?.filter { it.isNotBlank() } ?: emptyList()
+            val updated = (listOf(location) + existing.filterNot { it == location }).take(MAX_RECENT_LOCATIONS)
+            prefs[key] = updated.joinToString(RECENT_LOCATIONS_SEPARATOR)
+        }
+    }
+
+    private fun recentLocationsKey(profileId: String) = stringPreferencesKey("recent_locations_$profileId")
+
+    companion object {
+        private val summaryJson = Json { ignoreUnknownKeys = true }
+        const val DEFAULT_POLL_INTERVAL_SECONDS = 5
+        const val FONT_SCALE_MIN = 0.7f
+        const val FONT_SCALE_MAX = 1.8f
+        val POLL_INTERVAL_OPTIONS = listOf(3, 5, 10, 30, 60)
+        private const val MAX_RECENT_LOCATIONS = 8
+
+        // A control character that cannot appear in a typed filesystem path.
+        private const val RECENT_LOCATIONS_SEPARATOR = ""
+    }
+}
