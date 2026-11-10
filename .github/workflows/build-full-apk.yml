@@ -1,4 +1,4 @@
-name: Build full debug APK
+name: Build full release APK
 
 on:
   workflow_dispatch:
@@ -20,11 +20,25 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
 
-      - name: Assemble full debug APK
-        run: ./gradlew :app:assembleFullDebug
+      - name: Create a signing key
+        run: |
+          keytool -genkeypair -v -keystore transdroid-release.keystore -alias transdroid \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass transdroid-pass -keypass transdroid-pass \
+            -dname "CN=Transdroid personal build"
+          cat > keystore.properties <<PROPS
+          storeFile=transdroid-release.keystore
+          storePassword=transdroid-pass
+          keyAlias=transdroid
+          keyPassword=transdroid-pass
+          PROPS
+          sed -i 's/^ *//' keystore.properties
+
+      - name: Assemble full release APK
+        run: ./gradlew :app:assembleFullRelease
 
       - name: Upload APK
         uses: actions/upload-artifact@v7
         with:
-          name: transdroid-full-debug
-          path: app/build/outputs/apk/full/debug/app-full-debug.apk
+          name: transdroid-full-release
+          path: app/build/outputs/apk/full/release/*.apk
