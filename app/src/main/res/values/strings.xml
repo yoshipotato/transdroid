@@ -254,6 +254,8 @@
     <string name="settings_basic_auth_summary">Only needed if the Torznab URL itself is behind a login (e.g. a seedbox member area), separate from the API key above.</string>
     <string name="settings_delete_search_provider">Delete indexer</string>
     <string name="settings_search_test_success">Connected — found %1$d result(s)</string>
+    <string name="add_shared_success">Torrent added</string>
+    <string name="add_shared_failed">Couldn\'t add the torrent</string>
     <string name="settings_font_name">Torrent name text size</string>
     <string name="settings_font_details">Torrent details text size</string>
     <string name="settings_poll_interval">Refresh interval</string>

@@ -16,6 +16,13 @@
  */
 package org.transdroid.ui
 
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
+import org.transdroid.R
+import org.transdroid.appContainer
+import org.transdroid.data.SystemProxy
 import android.net.Uri
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.scaleOut
@@ -79,6 +86,7 @@ fun TransdroidApp(
     pendingOpenAddTorrent: Boolean = false,
     onPendingOpenAddTorrentConsumed: () -> Unit = {},
 ) {
+    val appContext = LocalContext.current.applicationContext
     val navController = rememberNavController()
     val torrentsViewModel: TorrentsViewModel = viewModel(factory = TorrentsViewModel.Factory)
     val settingsViewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.Factory)
@@ -89,8 +97,34 @@ fun TransdroidApp(
     // magnet/torrent URL always takes priority if somehow both arrive on the same intent.
     LaunchedEffect(pendingTorrentUrl, pendingOpenAddTorrent) {
         if (pendingTorrentUrl != null) {
-            navController.navigate(Routes.add(pendingTorrentUrl))
+            val url = pendingTorrentUrl
             onPendingTorrentUrlConsumed()
+            val isLink = url.startsWith("magnet:") || url.startsWith("http://") || url.startsWith("https://")
+            if (!isLink) {
+                // A .torrent file: still goes through the add screen
+                navController.navigate(Routes.add(url))
+            } else {
+                // A shared magnet/torrent link is added straight away, without the confirmation screen
+                val proxyHost = SystemProxy.host(appContext)
+                runCatching { appContext.appContainer.syncServerUrlToSystemProxy() }
+                val state = withTimeoutOrNull(3_000) {
+                    torrentsViewModel.ui.first { ui ->
+                        ui.profilesLoaded && (proxyHost == null || ui.activeProfile == null || ui.activeProfile.host == proxyHost)
+                    }
+                } ?: torrentsViewModel.ui.value
+                if (state.activeProfile == null) {
+                    navController.navigate(Routes.add(url))
+                } else {
+                    torrentsViewModel.add(url) { error ->
+                        if (error == null) {
+                            Toast.makeText(appContext, R.string.add_shared_success, Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(appContext, R.string.add_shared_failed, Toast.LENGTH_LONG).show()
+                            navController.navigate(Routes.add(url))
+                        }
+                    }
+                }
+            }
         } else if (pendingOpenAddTorrent) {
             navController.navigate(Routes.add(null))
             onPendingOpenAddTorrentConsumed()
