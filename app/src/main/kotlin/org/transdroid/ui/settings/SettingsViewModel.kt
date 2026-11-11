@@ -258,6 +258,13 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch { container.settingsRepository.setNameFontScale(scale) }
     }
 
+    val nameTrims: StateFlow<List<String>> = container.settingsRepository.nameTrims
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), org.transdroid.data.SettingsRepository.DEFAULT_NAME_TRIMS)
+
+    fun setNameTrims(trims: List<String>) {
+        viewModelScope.launch { container.settingsRepository.setNameTrims(trims) }
+    }
+
     val detailFontScale: StateFlow<Float> = container.settingsRepository.detailFontScale
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 1f)
 

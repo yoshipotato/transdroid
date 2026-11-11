@@ -37,8 +37,10 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import org.transdroid.metasearch.ActivityHolder
 import org.transdroid.ui.TransdroidApp
+import org.transdroid.data.SettingsRepository
 import org.transdroid.ui.theme.ListFontScales
 import org.transdroid.ui.theme.LocalListFontScales
+import org.transdroid.ui.theme.LocalNameTrims
 import org.transdroid.ui.theme.TransdroidTheme
 import org.transdroid.widget.publishWidgetPreviews
 
@@ -70,9 +72,10 @@ class MainActivity : ComponentActivity() {
         }
         setContent {
             val scales by fontScales.collectAsState(initial = ListFontScales())
+            val nameTrims by settings.nameTrims.collectAsState(initial = SettingsRepository.DEFAULT_NAME_TRIMS)
             TransdroidTheme {
                 val windowSizeClass = calculateWindowSizeClass(this)
-                CompositionLocalProvider(LocalListFontScales provides scales) {
+                CompositionLocalProvider(LocalListFontScales provides scales, LocalNameTrims provides nameTrims) {
                     TransdroidApp(
                         useTwoPane = windowSizeClass.widthSizeClass == WindowWidthSizeClass.Expanded,
                         pendingTorrentUrl = pendingTorrentUrl,

@@ -382,6 +382,8 @@ fun SettingsScreen(
                         value = detailFontScale,
                         onValueChange = viewModel::setDetailFontScale,
                     )
+                    val nameTrims by viewModel.nameTrims.collectAsStateWithLifecycle()
+                    NameTrimSetting(trims = nameTrims, onSave = viewModel::setNameTrims)
                     if (updateCheckAvailable) {
                         val checkUpdates by viewModel.checkUpdates.collectAsStateWithLifecycle()
                         SettingsRow(
@@ -705,6 +707,49 @@ private fun SendReportDialog(onDismiss: () -> Unit, onSend: (includeLog: Boolean
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.details_cancel)) }
         },
     )
+}
+
+@Composable
+internal fun NameTrimSetting(trims: List<String>, onSave: (List<String>) -> Unit) {
+    var editing by remember { mutableStateOf(false) }
+    Column(
+        Modifier.fillMaxWidth().clickable { editing = true }.padding(horizontal = 16.dp, vertical = 12.dp),
+    ) {
+        Text(stringResource(R.string.settings_name_trims), style = MaterialTheme.typography.bodyLarge)
+        Text(
+            if (trims.isEmpty()) stringResource(R.string.settings_name_trims_none) else trims.joinToString(", "),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+    if (editing) {
+        var text by remember { mutableStateOf(trims.joinToString("\n")) }
+        AlertDialog(
+            onDismissRequest = { editing = false },
+            title = { Text(stringResource(R.string.settings_name_trims)) },
+            text = {
+                Column {
+                    Text(
+                        stringResource(R.string.settings_name_trims_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    androidx.compose.material3.OutlinedTextField(
+                        value = text,
+                        onValueChange = { text = it },
+                        modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                        minLines = 3,
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { onSave(text.lines().filter { it.isNotBlank() }); editing = false }) {
+                    Text(stringResource(R.string.settings_name_trims_save))
+                }
+            },
+            dismissButton = { TextButton(onClick = { editing = false }) { Text(stringResource(R.string.meta_cancel)) } },
+        )
+    }
 }
 
 @Composable

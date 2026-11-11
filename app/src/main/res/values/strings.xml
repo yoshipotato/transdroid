@@ -277,6 +277,10 @@
     <string name="meta_add_failed">Couldn\'t add the torrent to your server</string>
     <string name="meta_no_server">No server is set up yet</string>
     <string name="meta_added_icon">Added</string>
+    <string name="settings_name_trims">Text to hide from torrent names</string>
+    <string name="settings_name_trims_none">Nothing is hidden</string>
+    <string name="settings_name_trims_hint">One per line. Matching text at the start of a name is hidden on the main screen, along with any dash or colon after it. The torrent itself is not renamed.</string>
+    <string name="settings_name_trims_save">Save</string>
     <string name="settings_font_name">Torrent name text size</string>
     <string name="settings_font_details">Torrent details text size</string>
     <string name="settings_poll_interval">Refresh interval</string>

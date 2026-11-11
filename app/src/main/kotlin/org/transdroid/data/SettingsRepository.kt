@@ -53,6 +53,16 @@ class SettingsRepository(private val context: Context) {
     private val notifiedUpdateCodeKey = intPreferencesKey("notified_update_code")
     private val nameFontScaleKey = floatPreferencesKey("name_font_scale")
     private val detailFontScaleKey = floatPreferencesKey("detail_font_scale")
+    private val nameTrimsKey = androidx.datastore.preferences.core.stringPreferencesKey("name_trims")
+
+    /** Texts to cut off the start of torrent names on the list (e.g. a tracker's advertising prefix). */
+    val nameTrims: Flow<List<String>> = context.settingsDataStore.data.map { prefs ->
+        prefs[nameTrimsKey]?.lines()?.filter { it.isNotBlank() } ?: DEFAULT_NAME_TRIMS
+    }
+
+    suspend fun setNameTrims(trims: List<String>) {
+        context.settingsDataStore.edit { it[nameTrimsKey] = trims.filter { t -> t.isNotBlank() }.joinToString("\n") }
+    }
 
     /** Multiplier for the torrent name text size on the list; 1 is the default size. */
     val nameFontScale: Flow<Float> = context.settingsDataStore.data.map { it[nameFontScaleKey] ?: 1f }
@@ -226,6 +236,7 @@ class SettingsRepository(private val context: Context) {
         private val summaryJson = Json { ignoreUnknownKeys = true }
         const val DEFAULT_POLL_INTERVAL_SECONDS = 5
         const val FONT_SCALE_MIN = 0.7f
+        val DEFAULT_NAME_TRIMS = listOf("www.UIndex.org")
         const val FONT_SCALE_MAX = 1.8f
         val POLL_INTERVAL_OPTIONS = listOf(3, 5, 10, 30, 60)
         private const val MAX_RECENT_LOCATIONS = 8

@@ -109,6 +109,8 @@ import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import org.transdroid.ui.theme.LocalListFontScales
+import org.transdroid.ui.theme.LocalNameTrims
+import org.transdroid.ui.theme.withoutPrefixes
 import org.transdroid.ui.theme.rowColors
 import org.transdroid.ui.theme.scaled
 import androidx.compose.runtime.Composable
@@ -1007,7 +1009,7 @@ private fun TorrentRow(
             Column(Modifier.weight(1f)) {
                 Row {
                     Text(
-                        torrent.name,
+                        torrent.name.withoutPrefixes(LocalNameTrims.current),
                         style = MaterialTheme.typography.titleSmall.scaled(scales.name),
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 3,
