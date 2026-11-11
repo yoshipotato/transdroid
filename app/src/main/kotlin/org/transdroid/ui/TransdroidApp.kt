@@ -43,8 +43,8 @@ import androidx.navigation.navArgument
 import org.transdroid.ui.add.AddTorrentScreen
 import org.transdroid.ui.rss.RssScreen
 import org.transdroid.ui.rss.RssViewModel
-import org.transdroid.ui.search.SearchScreen
-import org.transdroid.ui.search.SearchViewModel
+import org.transdroid.ui.metasearch.MetaSearchScreen
+import org.transdroid.ui.metasearch.MetaSearchViewModel
 import org.transdroid.ui.settings.AboutScreen
 import org.transdroid.ui.settings.ChangelogScreen
 import org.transdroid.ui.settings.EditSearchIndexerScreen
@@ -91,7 +91,7 @@ fun TransdroidApp(
     val torrentsViewModel: TorrentsViewModel = viewModel(factory = TorrentsViewModel.Factory)
     val settingsViewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.Factory)
     val rssViewModel: RssViewModel = viewModel(factory = RssViewModel.Factory)
-    val searchViewModel: SearchViewModel = viewModel(factory = SearchViewModel.Factory)
+    val metaSearchViewModel: MetaSearchViewModel = viewModel(factory = MetaSearchViewModel.Factory)
 
     // The widget's Add button opens a blank add screen (Routes.add(null)); an actual shared
     // magnet/torrent URL always takes priority if somehow both arrive on the same intent.
@@ -186,9 +186,10 @@ fun TransdroidApp(
             )
         }
         composable(Routes.SEARCH) {
-            SearchScreen(
-                viewModel = searchViewModel,
-                onAddIndexer = { navController.navigate(Routes.editSearchIndexer(null)) },
+            // Tapping a result adds it to the active server and stays on this screen
+            MetaSearchScreen(
+                viewModel = metaSearchViewModel,
+                addToServer = { url, onResult -> torrentsViewModel.add(url, onResult = onResult) },
                 onBack = { navController.popBackStack() },
             )
         }

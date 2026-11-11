@@ -13,3 +13,9 @@
 # for annotated model classes - not worth the risk of shrinking it for a few KB.
 -keep class com.maxmind.db.** { *; }
 -dontwarn com.maxmind.db.**
+
+# Built-in torrent search: jsoup refers to optional annotation/regex libraries that aren't shipped
+-dontwarn org.jspecify.annotations.**
+-dontwarn com.google.re2j.**
+-dontwarn javax.annotation.**
+-dontwarn org.jsoup.**

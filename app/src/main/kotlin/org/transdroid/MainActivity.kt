@@ -35,6 +35,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import org.transdroid.metasearch.ActivityHolder
 import org.transdroid.ui.TransdroidApp
 import org.transdroid.ui.theme.ListFontScales
 import org.transdroid.ui.theme.LocalListFontScales
@@ -86,8 +87,14 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
+        ActivityHolder.current = this
         // The proxy may have changed while the app was in the background
         lifecycleScope.launch { runCatching { appContainer.syncServerUrlToSystemProxy() } }
+    }
+
+    override fun onStop() {
+        if (ActivityHolder.current === this) ActivityHolder.current = null
+        super.onStop()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {

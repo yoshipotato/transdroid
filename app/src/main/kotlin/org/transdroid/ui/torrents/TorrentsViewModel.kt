@@ -646,9 +646,9 @@ class TorrentsViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
-    /** Adds a torrent by magnet/URL; invokes [onResult] with null on success. */
-    fun add(url: String, startPaused: Boolean = false, downloadLocation: String? = null, onResult: (UiError?) -> Unit) {
-        val profile = _ui.value.activeProfile ?: return
+    /** Adds a torrent by magnet/URL; invokes [onResult] with null on success. Returns false (and never calls it) when no server is set up. */
+    fun add(url: String, startPaused: Boolean = false, downloadLocation: String? = null, onResult: (UiError?) -> Unit): Boolean {
+        val profile = _ui.value.activeProfile ?: return false
         viewModelScope.launch {
             try {
                 container.adapterFor(profile).addByUrl(url, startPaused, downloadLocation)
@@ -661,6 +661,7 @@ class TorrentsViewModel(private val container: AppContainer) : ViewModel() {
                 onResult(e.toUiError(profile.host))
             }
         }
+        return true
     }
 
     /** Adds a torrent from the raw contents of a .torrent file. */
