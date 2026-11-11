@@ -110,6 +110,7 @@ import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import org.transdroid.ui.theme.LocalListFontScales
+import org.transdroid.ui.theme.rowColors
 import org.transdroid.ui.theme.scaled
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -1019,7 +1020,8 @@ private fun TorrentRow(
                     Text(
                         rowTag(torrent),
                         style = MaterialTheme.typography.labelSmall.scaled(scales.details),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = torrent.status.accentColor,
+                        fontWeight = FontWeight.Medium,
                         maxLines = 1,
                         modifier = Modifier.alignByBaseline(),
                     )
@@ -1029,7 +1031,7 @@ private fun TorrentRow(
                     Text(
                         rowDetail(torrent),
                         style = MaterialTheme.typography.bodySmall.scaled(scales.details),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = rowColors().size,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f),
@@ -1104,14 +1106,20 @@ private fun rowDetail(torrent: Torrent): String = when {
 
 @Composable
 private fun RowMetaLeft(torrent: Torrent) {
+    val colors = rowColors()
     val (icon, text) = when (torrent.status) {
         TorrentStatus.DOWNLOADING -> Icons.Rounded.Group to stringResource(R.string.torrent_row_peers, torrent.seedersConnected)
         TorrentStatus.QUEUED, TorrentStatus.CHECKING -> Icons.Rounded.Schedule to torrent.statusLabel()
         else -> Icons.Rounded.SyncAlt to (stringResource(R.string.details_ratio) + " " + formatRatio(torrent.ratio))
     }
+    val color = when (torrent.status) {
+        TorrentStatus.DOWNLOADING -> colors.peers
+        TorrentStatus.QUEUED, TorrentStatus.CHECKING -> MaterialTheme.colorScheme.onSurfaceVariant
+        else -> colors.ratio
+    }
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(14.dp))
-        Text(text, style = MaterialTheme.typography.labelSmall.scaled(LocalListFontScales.current.details), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(14.dp))
+        Text(text, style = MaterialTheme.typography.labelSmall.scaled(LocalListFontScales.current.details), color = color)
     }
 }
 
@@ -1119,19 +1127,19 @@ private fun RowMetaLeft(torrent: Torrent) {
 private fun RowMetaRight(torrent: Torrent) {
     when (torrent.status) {
         TorrentStatus.DOWNLOADING -> Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            SpeedChip(Icons.Rounded.South, formatSpeed(torrent.downloadRate))
-            SpeedChip(Icons.Rounded.North, formatSpeed(torrent.uploadRate))
+            SpeedChip(Icons.Rounded.South, formatSpeed(torrent.downloadRate), rowColors().download)
+            SpeedChip(Icons.Rounded.North, formatSpeed(torrent.uploadRate), rowColors().upload)
         }
-        TorrentStatus.SEEDING -> SpeedChip(Icons.Rounded.North, formatSpeed(torrent.uploadRate))
+        TorrentStatus.SEEDING -> SpeedChip(Icons.Rounded.North, formatSpeed(torrent.uploadRate), rowColors().upload)
         else -> {}
     }
 }
 
 @Composable
-private fun SpeedChip(icon: ImageVector, text: String) {
+private fun SpeedChip(icon: ImageVector, text: String, color: Color) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(13.dp))
-        Text(text, style = MaterialTheme.typography.labelSmall.scaled(LocalListFontScales.current.details), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(13.dp))
+        Text(text, style = MaterialTheme.typography.labelSmall.scaled(LocalListFontScales.current.details), color = color)
     }
 }
 
