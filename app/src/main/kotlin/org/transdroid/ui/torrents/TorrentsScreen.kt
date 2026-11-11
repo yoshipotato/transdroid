@@ -72,7 +72,6 @@ import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.South
 import androidx.compose.material.icons.rounded.Speed
-import androidx.compose.material.icons.rounded.SyncAlt
 import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.UnfoldMore
 import androidx.compose.material.icons.rounded.Upload
@@ -156,7 +155,6 @@ import org.transdroid.ui.theme.accentColor
 import org.transdroid.ui.theme.trackColor
 import org.transdroid.util.formatBytes
 import org.transdroid.util.formatEta
-import org.transdroid.util.formatRatio
 import org.transdroid.util.formatSpeed
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -954,6 +952,9 @@ private fun TorrentRow(
 ) {
     val haptics = LocalHapticFeedback.current
     val scales = LocalListFontScales.current
+    val hasMetaLeft = torrent.status == TorrentStatus.DOWNLOADING ||
+        torrent.status == TorrentStatus.QUEUED || torrent.status == TorrentStatus.CHECKING
+    val hasMeta = hasMetaLeft || torrent.status == TorrentStatus.SEEDING
     // Long-press and its gesture-free alternatives for TalkBack users
     val startPauseLabel = stringResource(if (torrent.status.canStart) R.string.selection_start else R.string.selection_pause)
     val selectLabel = stringResource(R.string.selection_select)
@@ -967,6 +968,7 @@ private fun TorrentRow(
                     checked -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
                         .compositeOver(MaterialTheme.colorScheme.background)
                     selected -> MaterialTheme.colorScheme.surfaceContainerHigh
+                    torrent.isFinished -> rowColors().completeBackground
                     else -> MaterialTheme.colorScheme.background
                 },
             )
@@ -1020,7 +1022,11 @@ private fun TorrentRow(
                     Text(
                         rowTag(torrent),
                         style = MaterialTheme.typography.labelSmall.scaled(scales.details),
-                        color = torrent.status.accentColor,
+                        color = when {
+                            torrent.metadataProgress != null -> rowColors().metadata
+                            torrent.status == TorrentStatus.PAUSED -> rowColors().paused
+                            else -> torrent.status.accentColor
+                        },
                         fontWeight = FontWeight.Medium,
                         maxLines = 1,
                         modifier = Modifier.alignByBaseline(),
@@ -1046,15 +1052,18 @@ private fun TorrentRow(
                     active = torrent.status == TorrentStatus.DOWNLOADING,
                     color = torrent.status.accentColor,
                     trackColor = torrent.status.trackColor,
-                    modifier = Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 9.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = 10.dp, bottom = if (hasMeta) 9.dp else 0.dp),
                 )
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    RowMetaLeft(torrent)
-                    RowMetaRight(torrent)
+                // The ratio is not shown, so rows with nothing else to show here drop the meta line
+                if (hasMeta) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        if (hasMetaLeft) RowMetaLeft(torrent) else Spacer(Modifier.weight(1f))
+                        RowMetaRight(torrent)
+                    }
                 }
             }
         }
@@ -1110,12 +1119,11 @@ private fun RowMetaLeft(torrent: Torrent) {
     val (icon, text) = when (torrent.status) {
         TorrentStatus.DOWNLOADING -> Icons.Rounded.Group to stringResource(R.string.torrent_row_peers, torrent.seedersConnected)
         TorrentStatus.QUEUED, TorrentStatus.CHECKING -> Icons.Rounded.Schedule to torrent.statusLabel()
-        else -> Icons.Rounded.SyncAlt to (stringResource(R.string.details_ratio) + " " + formatRatio(torrent.ratio))
+        else -> return
     }
     val color = when (torrent.status) {
         TorrentStatus.DOWNLOADING -> colors.peers
-        TorrentStatus.QUEUED, TorrentStatus.CHECKING -> MaterialTheme.colorScheme.onSurfaceVariant
-        else -> colors.ratio
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(14.dp))
