@@ -19,3 +19,12 @@
 -dontwarn com.google.re2j.**
 -dontwarn javax.annotation.**
 -dontwarn org.jsoup.**
+
+# ML Kit text recognition (OCR on shared screenshots) finds its components through manifest metadata and
+# reflection, so shrinking/renaming it in release builds made it crash with a NullPointerException
+-keep class com.google.mlkit.** { *; }
+-keep class com.google.android.gms.internal.mlkit_** { *; }
+-keep class com.google.android.odml.** { *; }
+-keep class com.google.firebase.components.** { *; }
+-keep class * implements com.google.firebase.components.ComponentRegistrar { *; }
+-dontwarn com.google.mlkit.**

@@ -42,3 +42,10 @@ jobs:
         with:
           name: transdroid-full-release
           path: app/build/outputs/apk/full/release/*.apk
+
+      - name: Upload R8 mapping (to decode obfuscated crash traces)
+        uses: actions/upload-artifact@v7
+        with:
+          name: r8-mapping
+          path: app/build/outputs/mapping/fullRelease/mapping.txt
+          if-no-files-found: ignore
