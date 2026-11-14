@@ -47,6 +47,7 @@ import org.transdroid.metasearch.Providers
 import org.transdroid.metasearch.ProxyGuard
 import org.transdroid.metasearch.SearchHistory
 import org.transdroid.metasearch.SiteToggles
+import org.transdroid.metasearch.VerificationCancelledException
 import org.transdroid.metasearch.Sizes
 import org.transdroid.metasearch.WebFetcher
 import org.transdroid.ui.torrents.UiError
@@ -177,6 +178,10 @@ class MetaSearchViewModel(private val app: Application) : ViewModel() {
                 return
             } catch (e: CancellationException) {
                 throw e
+            } catch (e: VerificationCancelledException) {
+                // The user declined the check: give up on this site for this search (the next search tries again)
+                lastError = "verification cancelled"
+                break
             } catch (e: Exception) {
                 lastError = "$host: ${e.message ?: e.javaClass.simpleName}"
             }
@@ -243,6 +248,8 @@ class MetaSearchViewModel(private val app: Application) : ViewModel() {
             try {
                 val m = p.resolveMagnet(http, host, t)
                 if (m != null) return m
+            } catch (e: VerificationCancelledException) {
+                return null
             } catch (e: Exception) { /* try the next mirror */ }
         }
         return null

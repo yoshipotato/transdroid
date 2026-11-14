@@ -38,6 +38,9 @@ import java.io.IOException
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.TimeUnit
 
+/** The user dismissed the verification dialog: the search shouldn't ask this site again. */
+class VerificationCancelledException : IOException("verification cancelled")
+
 /** The foreground activity, for the rare Cloudflare check that needs the user to tick a box in a dialog. */
 object ActivityHolder {
     @Volatile var current: Activity? = null
@@ -50,7 +53,7 @@ object ActivityHolder {
  * The WebView honours the Android system proxy on its own.
  */
 class WebFetcher(app: Context) {
-    private class Res(val html: String?, val error: String?)
+    private class Res(val html: String?, val error: String?, val cancelled: Boolean = false)
 
     private val main = Handler(Looper.getMainLooper())
     private val lock = Any()
@@ -70,6 +73,7 @@ class WebFetcher(app: Context) {
                 Thread.currentThread().interrupt()
             }
             if (r == null) throw IOException("WebView timed out")
+            if (r.cancelled) throw VerificationCancelledException()
             return r.html ?: throw IOException(r.error ?: "WebView failed")
         }
     }
@@ -115,8 +119,8 @@ class WebFetcher(app: Context) {
                 .setTitle("Verification required")
                 .setMessage("Complete the security check below. This closes by itself when it passes.")
                 .setView(frame)
-                .setNegativeButton("Cancel") { _, _ -> finish(Res(null, "verification cancelled")) }
-                .setOnCancelListener { finish(Res(null, "verification cancelled")) }
+                .setNegativeButton("Cancel") { _, _ -> finish(Res(null, "verification cancelled", cancelled = true)) }
+                .setOnCancelListener { finish(Res(null, "verification cancelled", cancelled = true)) }
                 .create()
             d.setCanceledOnTouchOutside(false)
             dialog = d
