@@ -83,6 +83,8 @@ data class MetaSearchUi(
     /** The result currently being resolved/added. */
     val busyKey: String? = null,
     val history: List<String> = emptyList(),
+    /** Why the last tapped torrent could not be added; shown in a dialog until dismissed. */
+    val addFailure: String? = null,
 )
 
 /**
@@ -116,6 +118,12 @@ class MetaSearchViewModel(private val app: Application) : ViewModel() {
     private val searchId = AtomicInteger()
     private var searchJob: Job? = null
 
+    private fun fail(resId: Int, vararg args: Any) {
+        _ui.update { it.copy(addFailure = app.getString(resId, *args)) }
+    }
+
+    fun dismissAddFailure() { _ui.update { it.copy(addFailure = null) } }
+
     private fun say(resId: Int, vararg args: Any) { _messages.tryEmit(app.getString(resId, *args)) }
 
     private fun siteLines(state: Map<String, SiteLine>): List<SiteLine> = Providers.all.map { p ->
@@ -141,7 +149,6 @@ class MetaSearchViewModel(private val app: Application) : ViewModel() {
         history.add(q)
         val id = searchId.incrementAndGet()
         searchJob?.cancel()
-        http.resumeWebLoads()
         val dedup = Deduper()
         _ui.update { state ->
             state.copy(
@@ -177,6 +184,7 @@ class MetaSearchViewModel(private val app: Application) : ViewModel() {
     }
 
     private fun runProvider(p: Provider, q: String, id: Int, dedup: Deduper) {
+        http.bindWebLoads()
         var lastError = "no mirror responded"
         for (host in mirrors.ordered(p)) {
             if (id != searchId.get()) return
@@ -227,7 +235,6 @@ class MetaSearchViewModel(private val app: Application) : ViewModel() {
      */
     fun addTorrent(result: MetaResult, add: (String, Long?, (UiError?) -> Unit) -> Boolean) {
         if (_ui.value.busyKey != null) return
-        http.resumeWebLoads()
         viewModelScope.launch {
             _ui.update { it.copy(busyKey = result.key) }
             val t = result.torrent
@@ -235,14 +242,14 @@ class MetaSearchViewModel(private val app: Application) : ViewModel() {
             if (magnet == null) {
                 if (ProxyGuard.current() == null) {
                     _ui.update { it.copy(busyKey = null) }
-                    say(R.string.meta_no_proxy_short)
+                    fail(R.string.meta_no_proxy_short)
                     return@launch
                 }
                 say(R.string.meta_fetching_magnet)
                 magnet = withContext(Dispatchers.IO) { resolveMagnet(t) }
                 if (magnet == null) {
                     _ui.update { it.copy(busyKey = null) }
-                    say(R.string.meta_magnet_failed)
+                    fail(R.string.meta_magnet_failed)
                     return@launch
                 }
                 t.magnet = magnet
@@ -254,23 +261,24 @@ class MetaSearchViewModel(private val app: Application) : ViewModel() {
                 }
                 when (error) {
                     null -> say(R.string.meta_added, result.name)
-                    is UiError.NoSpace -> say(
+                    is UiError.NoSpace -> fail(
                         R.string.error_no_space,
                         formatBytes(error.sizeBytes),
                         formatBytes(error.freeBytes),
                         formatBytes(FREE_SPACE_RESERVE_BYTES),
                     )
-                    else -> say(R.string.meta_add_failed)
+                    else -> fail(R.string.meta_add_failed)
                 }
             }
             if (!started) {
                 _ui.update { it.copy(busyKey = null) }
-                say(R.string.meta_no_server)
+                fail(R.string.meta_no_server)
             }
         }
     }
 
     private fun resolveMagnet(t: FoundTorrent): String? {
+        http.bindWebLoads()
         val p = Providers.byId(t.detailSiteId) ?: return null
         for (host in mirrors.ordered(p)) {
             try {

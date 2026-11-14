@@ -239,6 +239,15 @@ fun MetaSearchScreen(
         }
     }
 
+    ui.addFailure?.let { reason ->
+        AlertDialog(
+            onDismissRequest = viewModel::dismissAddFailure,
+            title = { Text(stringResource(R.string.not_added_title)) },
+            text = { Text(reason) },
+            confirmButton = { TextButton(onClick = viewModel::dismissAddFailure) { Text(stringResource(R.string.dialog_ok)) } },
+        )
+    }
+
     if (showSites) {
         AlertDialog(
             onDismissRequest = { showSites = false },

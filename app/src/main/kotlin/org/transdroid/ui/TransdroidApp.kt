@@ -29,6 +29,11 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.material3.Text
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -53,7 +58,9 @@ import org.transdroid.ui.settings.EditServerScreen
 import org.transdroid.ui.settings.LegacyImportDialog
 import org.transdroid.ui.settings.SettingsScreen
 import org.transdroid.ui.settings.SettingsViewModel
+import org.transdroid.ui.torrents.FREE_SPACE_RESERVE_BYTES
 import org.transdroid.ui.torrents.TorrentDetailsScreen
+import org.transdroid.ui.torrents.UiError
 import org.transdroid.ui.torrents.TorrentsScreen
 import org.transdroid.ui.torrents.TorrentsViewModel
 
@@ -96,6 +103,18 @@ fun TransdroidApp(
     val rssViewModel: RssViewModel = viewModel(factory = RssViewModel.Factory)
     val metaSearchViewModel: MetaSearchViewModel = viewModel(factory = MetaSearchViewModel.Factory)
 
+    var addFailure by remember { mutableStateOf<String?>(null) }
+    addFailure?.let { reason ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { addFailure = null },
+            title = { Text(stringResource(R.string.not_added_title)) },
+            text = { Text(reason) },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = { addFailure = null }) { Text(stringResource(R.string.dialog_ok)) }
+            },
+        )
+    }
+
     // A search worked out from a shared screenshot: open the search screen and, when a show was recognised, run it
     LaunchedEffect(pendingSearch) {
         val search = pendingSearch ?: return@LaunchedEffect
@@ -130,6 +149,13 @@ fun TransdroidApp(
                     torrentsViewModel.add(url) { error ->
                         if (error == null) {
                             Toast.makeText(appContext, R.string.add_shared_success, Toast.LENGTH_SHORT).show()
+                        } else if (error is UiError.NoSpace) {
+                            addFailure = appContext.getString(
+                                R.string.error_no_space,
+                                org.transdroid.util.formatBytes(error.sizeBytes),
+                                org.transdroid.util.formatBytes(error.freeBytes),
+                                org.transdroid.util.formatBytes(FREE_SPACE_RESERVE_BYTES),
+                            )
                         } else {
                             Toast.makeText(appContext, R.string.add_shared_failed, Toast.LENGTH_LONG).show()
                             navController.navigate(Routes.add(url))

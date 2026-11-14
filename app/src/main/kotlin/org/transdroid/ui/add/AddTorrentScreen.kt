@@ -118,6 +118,9 @@ fun AddTorrentScreen(
     // so restoring `true` across recreation would leave the button disabled forever
     var submitting by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<UiError?>(null) }
+    // A separate flag from [error]: closing the dialog must not clear the error (that would re-trigger the auto-submit)
+    var showErrorDialog by remember { mutableStateOf(false) }
+    LaunchedEffect(error) { if (error != null) showErrorDialog = true }
     var fileReadFailed by remember { mutableStateOf(false) }
 
     val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -168,6 +171,17 @@ fun AddTorrentScreen(
     LaunchedEffect(fileUri, ui.profileCount) {
         if (fileUri != null && ui.profileCount == 1 && !submitting && error == null && !fileReadFailed) {
             submit()
+        }
+    }
+
+    if (showErrorDialog) {
+        error?.let { e ->
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { showErrorDialog = false },
+                title = { Text(stringResource(R.string.not_added_title)) },
+                text = { Text(e.message()) },
+                confirmButton = { TextButton(onClick = { showErrorDialog = false }) { Text(stringResource(R.string.dialog_ok)) } },
+            )
         }
     }
 
