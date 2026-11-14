@@ -201,7 +201,7 @@ fun TransdroidApp(
             // Tapping a result adds it to the active server and stays on this screen
             MetaSearchScreen(
                 viewModel = metaSearchViewModel,
-                addToServer = { url, onResult -> torrentsViewModel.add(url, onResult = onResult) },
+                addToServer = { url, size, onResult -> torrentsViewModel.add(url, sizeBytes = size, onResult = onResult) },
                 onBack = { navController.popBackStack() },
             )
         }

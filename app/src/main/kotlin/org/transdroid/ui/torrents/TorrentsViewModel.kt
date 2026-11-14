@@ -56,7 +56,15 @@ sealed class UiError {
     data class Authentication(val detail: String? = null) : UiError()
     data object Ssl : UiError()
     data class Unexpected(val detail: String? = null) : UiError()
+    /** Refused because the torrent plus the free-space reserve wouldn't fit on the server's disk. */
+    data class NoSpace(val sizeBytes: Long, val freeBytes: Long) : UiError()
 }
+
+/** Thrown before adding a torrent that would leave less than [FREE_SPACE_RESERVE_BYTES] free. */
+internal class NotEnoughSpaceException(val sizeBytes: Long, val freeBytes: Long) : Exception("Not enough free space")
+
+/** A torrent is only added when this much stays free on the server afterwards. */
+const val FREE_SPACE_RESERVE_BYTES = 2L * 1024 * 1024 * 1024
 
 internal fun Throwable.toUiError(host: String): UiError {
     ErrorLog.log("Daemon", "Error for $host", this)
@@ -65,6 +73,7 @@ internal fun Throwable.toUiError(host: String): UiError {
         is DaemonException.Authentication -> UiError.Authentication(message)
         is DaemonException.UntrustedServer -> UiError.Ssl
         is DaemonException.UnexpectedResponse -> UiError.Unexpected(message)
+        is NotEnoughSpaceException -> UiError.NoSpace(sizeBytes, freeBytes)
         else -> UiError.Unexpected()
     }
 }
@@ -673,11 +682,19 @@ class TorrentsViewModel(private val container: AppContainer) : ViewModel() {
     }
 
     /** Adds a torrent by magnet/URL; invokes [onResult] with null on success. Returns false (and never calls it) when no server is set up. */
-    fun add(url: String, startPaused: Boolean = false, downloadLocation: String? = null, onResult: (UiError?) -> Unit): Boolean {
+    fun add(
+        url: String,
+        startPaused: Boolean = false,
+        downloadLocation: String? = null,
+        sizeBytes: Long? = null,
+        onResult: (UiError?) -> Unit,
+    ): Boolean {
         val profile = _ui.value.activeProfile ?: return false
         viewModelScope.launch {
             try {
-                container.adapterFor(profile).addByUrl(url, startPaused, downloadLocation)
+                val adapter = container.adapterFor(profile)
+                requireRoomFor(adapter, sizeBytes)
+                adapter.addByUrl(url, startPaused, downloadLocation)
                 rememberDownloadLocation(profile.id, downloadLocation)
                 refreshNow(showSpinner = false)
                 onResult(null)
@@ -701,7 +718,9 @@ class TorrentsViewModel(private val container: AppContainer) : ViewModel() {
         val profile = _ui.value.activeProfile ?: return
         viewModelScope.launch {
             try {
-                container.adapterFor(profile).addByFile(fileName, contents, startPaused, downloadLocation)
+                val adapter = container.adapterFor(profile)
+                requireRoomFor(adapter, org.transdroid.util.torrentFileSize(contents))
+                adapter.addByFile(fileName, contents, startPaused, downloadLocation)
                 rememberDownloadLocation(profile.id, downloadLocation)
                 refreshNow(showSpinner = false)
                 onResult(null)
@@ -711,6 +730,23 @@ class TorrentsViewModel(private val container: AppContainer) : ViewModel() {
                 onResult(e.toUiError(profile.host))
             }
         }
+    }
+
+    /**
+     * Refuses a torrent of a known size that wouldn't leave [FREE_SPACE_RESERVE_BYTES] free on the
+     * server's disk. Asks the server right now rather than trusting the cached chip value. A server
+     * that can't report free space, or an unknown size, lets the add through.
+     */
+    private suspend fun requireRoomFor(adapter: org.transdroid.protocol.DaemonAdapter, sizeBytes: Long?) {
+        if (sizeBytes == null || sizeBytes <= 0) return
+        val free = try {
+            adapter.storageInfo()?.freeBytes
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            null
+        } ?: return
+        if (free < sizeBytes + FREE_SPACE_RESERVE_BYTES) throw NotEnoughSpaceException(sizeBytes, free)
     }
 
     private suspend fun rememberDownloadLocation(profileId: String, downloadLocation: String?) {

@@ -62,21 +62,25 @@ class WebFetcher(app: Context) {
     val userAgent: String = WebSettings.getDefaultUserAgent(app.applicationContext).replace("; wv", "")
 
     @Volatile private var generation = 0
+    @Volatile private var aborted = false
     @Volatile private var cancelCurrent: (() -> Unit)? = null
 
     /** Stops the page being loaded right now (closing its verification dialog) and any loads still waiting their turn. */
     fun abort() {
+        aborted = true
         generation++
         main.post { cancelCurrent?.invoke() }
     }
+
+    fun resume() { aborted = false }
 
     @Throws(IOException::class)
     fun fetch(url: String): String {
         val startedAt = generation
         synchronized(lock) {
-            if (startedAt != generation) throw VerificationCancelledException()
+            if (aborted || startedAt != generation) throw VerificationCancelledException()
             val q = ArrayBlockingQueue<Res>(1)
-            main.post { start(url, q) }
+            main.post { start(url, q, startedAt) }
             var r: Res? = null
             try {
                 r = q.poll(TOTAL_TIMEOUT_MS / 1000 + 15, TimeUnit.SECONDS)
@@ -89,7 +93,9 @@ class WebFetcher(app: Context) {
         }
     }
 
-    private fun start(url: String, q: ArrayBlockingQueue<Res>) {
+    private fun start(url: String, q: ArrayBlockingQueue<Res>, startedAt: Int) {
+        // Stop was pressed after this load was queued: don't open a page (or a dialog) at all
+        if (aborted || startedAt != generation) { q.offer(Res(null, "stopped", cancelled = true)); return }
         val activity = ActivityHolder.current
         if (activity == null || activity.isFinishing || activity.isDestroyed) { q.offer(Res(null, "app closed")); return }
 
@@ -128,6 +134,7 @@ class WebFetcher(app: Context) {
             val frame = FrameLayout(activity)
             val h = (activity.resources.displayMetrics.heightPixels * 0.6).toInt()
             frame.addView(wv, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, h))
+            if (done || aborted || startedAt != generation) return
             val d = AlertDialog.Builder(activity)
                 .setTitle("Verification required")
                 .setMessage("Complete the security check below. This closes by itself when it passes.")
@@ -153,6 +160,7 @@ class WebFetcher(app: Context) {
         val poll = object : Runnable {
             override fun run() {
                 if (done) return
+                if (aborted || startedAt != generation) { finish(Res(null, "stopped", cancelled = true)); return }
                 val elapsed = SystemClock.uptimeMillis() - t0
                 if (activity.isFinishing || activity.isDestroyed) { finish(Res(null, "app closed")); return }
                 if (elapsed > TOTAL_TIMEOUT_MS) { finish(Res(null, "verification timed out")); return }

@@ -110,7 +110,7 @@ import org.transdroid.util.formatBytes
 @Composable
 fun MetaSearchScreen(
     viewModel: MetaSearchViewModel,
-    addToServer: (String, (UiError?) -> Unit) -> Boolean,
+    addToServer: (String, Long?, (UiError?) -> Unit) -> Boolean,
     onBack: () -> Unit,
 ) {
     val ui by viewModel.ui.collectAsStateWithLifecycle()

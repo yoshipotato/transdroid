@@ -50,7 +50,9 @@ import org.transdroid.metasearch.SiteToggles
 import org.transdroid.metasearch.VerificationCancelledException
 import org.transdroid.metasearch.Sizes
 import org.transdroid.metasearch.WebFetcher
+import org.transdroid.ui.torrents.FREE_SPACE_RESERVE_BYTES
 import org.transdroid.ui.torrents.UiError
+import org.transdroid.util.formatBytes
 import java.util.concurrent.atomic.AtomicInteger
 
 /** One merged search result: the same torrent found on several sites shows up once. */
@@ -139,6 +141,7 @@ class MetaSearchViewModel(private val app: Application) : ViewModel() {
         history.add(q)
         val id = searchId.incrementAndGet()
         searchJob?.cancel()
+        http.resumeWebLoads()
         val dedup = Deduper()
         _ui.update { state ->
             state.copy(
@@ -222,8 +225,9 @@ class MetaSearchViewModel(private val app: Application) : ViewModel() {
      * Adds the result to the active server right away. [add] hands a magnet link to the torrent list's
      * add function and returns false when no server is set up; its callback gets null on success.
      */
-    fun addTorrent(result: MetaResult, add: (String, (UiError?) -> Unit) -> Boolean) {
+    fun addTorrent(result: MetaResult, add: (String, Long?, (UiError?) -> Unit) -> Boolean) {
         if (_ui.value.busyKey != null) return
+        http.resumeWebLoads()
         viewModelScope.launch {
             _ui.update { it.copy(busyKey = result.key) }
             val t = result.torrent
@@ -244,11 +248,20 @@ class MetaSearchViewModel(private val app: Application) : ViewModel() {
                 t.magnet = magnet
                 if (t.infoHash == null) t.infoHash = Magnets.hashOf(magnet)
             }
-            val started = add(magnet) { error ->
+            val started = add(magnet, result.sizeBytes) { error ->
                 _ui.update { state ->
                     state.copy(busyKey = null, added = if (error == null) state.added + result.key else state.added)
                 }
-                if (error == null) say(R.string.meta_added, result.name) else say(R.string.meta_add_failed)
+                when (error) {
+                    null -> say(R.string.meta_added, result.name)
+                    is UiError.NoSpace -> say(
+                        R.string.error_no_space,
+                        formatBytes(error.sizeBytes),
+                        formatBytes(error.freeBytes),
+                        formatBytes(FREE_SPACE_RESERVE_BYTES),
+                    )
+                    else -> say(R.string.meta_add_failed)
+                }
             }
             if (!started) {
                 _ui.update { it.copy(busyKey = null) }

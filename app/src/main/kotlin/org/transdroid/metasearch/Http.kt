@@ -71,6 +71,9 @@ class Http(private val web: WebFetcher) {
     /** Stops any page load in the WebView, e.g. when the user stops a search. */
     fun abortWebLoads() = web.abort()
 
+    /** Lets web loads start again after [abortWebLoads]; called when a new search or an add begins. */
+    fun resumeWebLoads() = web.resume()
+
     private val webHosts: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
     @Throws(IOException::class)

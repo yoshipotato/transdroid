@@ -20,12 +20,19 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import org.transdroid.R
 import org.transdroid.protocol.TorrentStatus
+import org.transdroid.ui.torrents.FREE_SPACE_RESERVE_BYTES
 import org.transdroid.ui.torrents.UiError
 
 @Composable
 fun UiError.message(): String = when (this) {
     is UiError.Connection -> stringResource(R.string.error_connection, host)
     is UiError.Authentication -> detail ?: stringResource(R.string.error_authentication)
+    is UiError.NoSpace -> stringResource(
+        R.string.error_no_space,
+        org.transdroid.util.formatBytes(sizeBytes),
+        org.transdroid.util.formatBytes(freeBytes),
+        org.transdroid.util.formatBytes(FREE_SPACE_RESERVE_BYTES),
+    )
     UiError.Ssl -> stringResource(R.string.error_ssl)
     is UiError.Unexpected ->
         detail ?: stringResource(R.string.error_unexpected)
