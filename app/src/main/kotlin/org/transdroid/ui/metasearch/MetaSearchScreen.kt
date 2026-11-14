@@ -52,6 +52,7 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.material.icons.rounded.TravelExplore
 import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material3.AlertDialog
@@ -173,7 +174,17 @@ fun MetaSearchScreen(
                     if (line.detail.isNotEmpty()) Toast.makeText(context, "${line.name}: ${line.detail}", Toast.LENGTH_LONG).show()
                 })
                 if (ui.searching) {
-                    LinearProgressIndicator(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp))
+                    Row(
+                        Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        LinearProgressIndicator(Modifier.weight(1f))
+                        TextButton(onClick = viewModel::stopSearch) {
+                            Icon(Icons.Rounded.Stop, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(stringResource(R.string.meta_stop))
+                        }
+                    }
                 } else if (ui.searched) {
                     Text(
                         stringResource(R.string.search_result_count, ui.results.size),

@@ -158,6 +158,21 @@ class MetaSearchViewModel(private val app: Application) : ViewModel() {
         }
     }
 
+    /** Stops the search in progress; what was found so far stays on screen. */
+    fun stopSearch() {
+        searchId.incrementAndGet()
+        searchJob?.cancel()
+        http.abortWebLoads()
+        _ui.update { state ->
+            state.copy(
+                searching = false,
+                sites = state.sites.map {
+                    if (it.state == SiteState.SEARCHING) it.copy(state = SiteState.IDLE, detail = "stopped") else it
+                },
+            )
+        }
+    }
+
     private fun runProvider(p: Provider, q: String, id: Int, dedup: Deduper) {
         var lastError = "no mirror responded"
         for (host in mirrors.ordered(p)) {

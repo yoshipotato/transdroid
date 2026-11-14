@@ -68,6 +68,9 @@ class Http(private val web: WebFetcher) {
 
     private fun clientPoolEvict() { client.connectionPool.evictAll() }
 
+    /** Stops any page load in the WebView, e.g. when the user stops a search. */
+    fun abortWebLoads() = web.abort()
+
     private val webHosts: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
     @Throws(IOException::class)

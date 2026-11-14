@@ -261,6 +261,7 @@
     <string name="meta_mirrors">Mirror domains</string>
     <string name="meta_mirrors_hint">One domain per line. They are tried top to bottom; the last one that worked is tried first next time.</string>
     <string name="meta_clear_history">Clear search history</string>
+    <string name="meta_stop">Stop</string>
     <string name="meta_done">Done</string>
     <string name="meta_save">Save</string>
     <string name="meta_reset">Reset all</string>

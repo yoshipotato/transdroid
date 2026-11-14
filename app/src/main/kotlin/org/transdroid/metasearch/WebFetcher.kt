@@ -61,9 +61,20 @@ class WebFetcher(app: Context) {
     /** Must be constructed on the main thread. */
     val userAgent: String = WebSettings.getDefaultUserAgent(app.applicationContext).replace("; wv", "")
 
+    @Volatile private var generation = 0
+    @Volatile private var cancelCurrent: (() -> Unit)? = null
+
+    /** Stops the page being loaded right now (closing its verification dialog) and any loads still waiting their turn. */
+    fun abort() {
+        generation++
+        main.post { cancelCurrent?.invoke() }
+    }
+
     @Throws(IOException::class)
     fun fetch(url: String): String {
+        val startedAt = generation
         synchronized(lock) {
+            if (startedAt != generation) throw VerificationCancelledException()
             val q = ArrayBlockingQueue<Res>(1)
             main.post { start(url, q) }
             var r: Res? = null
@@ -110,6 +121,8 @@ class WebFetcher(app: Context) {
             wv.destroy()
             q.offer(r)
         }
+
+        cancelCurrent = { finish(Res(null, "stopped", cancelled = true)) }
 
         fun showDialog() {
             val frame = FrameLayout(activity)
