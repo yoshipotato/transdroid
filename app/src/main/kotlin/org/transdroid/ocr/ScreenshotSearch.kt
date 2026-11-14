@@ -17,7 +17,9 @@
 package org.transdroid.ocr
 
 import android.content.Context
+import android.graphics.BitmapFactory
 import android.net.Uri
+import android.util.Log
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
@@ -37,7 +39,7 @@ object ScreenshotSearch {
 
     /** Reads the text in the image on the device (no network); one string per block of text, top to bottom. */
     suspend fun readBlocks(context: Context, uri: Uri): List<String> {
-        val image = InputImage.fromFilePath(context, uri)
+        val image = loadImage(context, uri)
         val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
         try {
             return suspendCancellableCoroutine { cont ->
@@ -50,6 +52,21 @@ object ScreenshotSearch {
         } finally {
             recognizer.close()
         }
+    }
+
+    /** Opens the shared image; if ML Kit's own loader can't, decodes it here (shrunk if huge) instead. */
+    private fun loadImage(context: Context, uri: Uri): InputImage = try {
+        InputImage.fromFilePath(context, uri)
+    } catch (first: Exception) {
+        Log.w("ScreenshotSearch", "InputImage.fromFilePath failed, decoding manually", first)
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+        var sample = 1
+        while (bounds.outWidth / sample > 2400 || bounds.outHeight / sample > 4800) sample *= 2
+        val bitmap = context.contentResolver.openInputStream(uri)?.use {
+            BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample })
+        } ?: throw IllegalStateException("could not open or decode the image", first)
+        InputImage.fromBitmap(bitmap, 0)
     }
 
     private val episode = Regex("""\bS\d{1,2}\s?E\d{1,3}\b""", RegexOption.IGNORE_CASE)

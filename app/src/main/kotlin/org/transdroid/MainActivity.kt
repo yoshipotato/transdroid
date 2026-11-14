@@ -19,6 +19,7 @@ package org.transdroid
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -149,7 +150,9 @@ class MainActivity : ComponentActivity() {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Toast.makeText(this@MainActivity, R.string.ocr_failed, Toast.LENGTH_LONG).show()
+                Log.e("MainActivity", "Reading the shared screenshot failed", e)
+                val reason = (e.cause ?: e).let { "${it.javaClass.simpleName}: ${it.message}" }
+                Toast.makeText(this@MainActivity, getString(R.string.ocr_failed, reason), Toast.LENGTH_LONG).show()
                 return@launch
             }
             val quality = appContainer.settingsRepository.screenshotQuality.first()
