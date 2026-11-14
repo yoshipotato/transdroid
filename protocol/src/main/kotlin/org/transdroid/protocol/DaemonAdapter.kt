@@ -96,6 +96,9 @@ interface DaemonAdapter {
      */
     suspend fun setDownloadLocation(torrentId: String, location: String)
 
+    /** Free (and total) space where the daemon stores downloads; null when this client can't tell. */
+    suspend fun storageInfo(): StorageInfo? = null
+
     /** Whether this client exposes an alternative ("turtle") speed limits toggle at all. */
     val supportsAltSpeedLimits: Boolean get() = false
 

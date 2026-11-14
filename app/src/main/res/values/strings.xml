@@ -42,6 +42,7 @@
     <string name="drawer_connection_error">Connection error</string>
 
     <!-- Torrents bottom toolbar -->
+    <string name="storage_free">%1$s free</string>
     <string name="toolbar_download_active">%d active</string>
     <string name="toolbar_upload_sharing">%d sharing</string>
 

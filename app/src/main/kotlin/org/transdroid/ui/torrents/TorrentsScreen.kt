@@ -70,6 +70,7 @@ import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.RssFeed
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material.icons.rounded.South
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.TouchApp
@@ -295,11 +296,14 @@ fun TorrentsScreen(
                                 Text(stringResource(R.string.torrents_title))
                                 ui.activeProfile?.let {
                                     Spacer(Modifier.height(7.dp))
-                                    ServerChip(
-                                        activeProfile = it,
-                                        allProfiles = ui.allProfiles,
-                                        onSwitchProfile = { id -> viewModel.switchProfile(id) },
-                                    )
+                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        ServerChip(
+                                            activeProfile = it,
+                                            allProfiles = ui.allProfiles,
+                                            onSwitchProfile = { id -> viewModel.switchProfile(id) },
+                                        )
+                                        FreeSpaceChip(ui)
+                                    }
                                 }
                             }
                         },
@@ -428,6 +432,8 @@ private fun TabletTopBar(
                         allProfiles = ui.allProfiles,
                         onSwitchProfile = onSwitchProfile,
                     )
+                    Spacer(Modifier.width(6.dp))
+                    FreeSpaceChip(ui)
                 }
                 Spacer(Modifier.weight(1f))
                 TabletStat(
@@ -488,6 +494,33 @@ private fun AltSpeedButton(enabled: Boolean, onClick: () -> Unit) {
  * opens a switcher, same idea as the filter drawer's [ServerSelector] - just compact enough for
  * the app bar.
  */
+/** How much room the server's disk has left, next to the server's name; nothing when the client doesn't say. */
+@Composable
+private fun FreeSpaceChip(ui: TorrentsUiState) {
+    val storage = ui.storage?.takeIf { ui.storageProfileId == ui.activeProfile?.id } ?: return
+    // Under 2 GB is nearly full for a torrent client: switch to the error colour
+    val low = storage.freeBytes < 2L * 1024 * 1024 * 1024
+    Surface(
+        shape = MaterialTheme.shapes.extraLarge,
+        color = if (low) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+    ) {
+        Row(
+            Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
+        ) {
+            val color = if (low) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurfaceVariant
+            Icon(Icons.Rounded.Storage, contentDescription = null, tint = color, modifier = Modifier.size(15.dp))
+            Text(
+                stringResource(R.string.storage_free, formatBytes(storage.freeBytes)),
+                style = MaterialTheme.typography.labelMedium,
+                color = color,
+                maxLines = 1,
+            )
+        }
+    }
+}
+
 @Composable
 private fun ServerChip(activeProfile: ServerProfile, allProfiles: List<ServerProfile>, onSwitchProfile: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }

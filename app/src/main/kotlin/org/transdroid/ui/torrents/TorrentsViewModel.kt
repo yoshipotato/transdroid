@@ -44,6 +44,7 @@ import org.transdroid.errorlog.ErrorLog
 import org.transdroid.protocol.DaemonException
 import org.transdroid.protocol.FilePriority
 import org.transdroid.protocol.Peer
+import org.transdroid.protocol.StorageInfo
 import org.transdroid.protocol.Torrent
 import org.transdroid.protocol.TorrentFile
 import org.transdroid.protocol.TorrentStatus
@@ -167,6 +168,9 @@ data class TorrentsUiState(
     /** Whether the active server's client exposes an alternative ("turtle") speed limits toggle. */
     val altSpeedSupported: Boolean = false,
     val altSpeedEnabled: Boolean = false,
+    /** Disk space on the active server, when its client reports it; see [storageProfileId]. */
+    val storage: StorageInfo? = null,
+    val storageProfileId: String? = null,
     /** Download locations previously used on the active server, most-recent first; see [org.transdroid.data.SettingsRepository.recentDownloadLocations]. */
     val recentDownloadLocations: List<String> = emptyList(),
 ) {
@@ -317,6 +321,25 @@ class TorrentsViewModel(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch { refreshNow(showSpinner) }
     }
 
+    private var lastStorageAt = 0L
+    private var lastStorageProfileId: String? = null
+
+    /** The server's disk space, asked for at most every 30 seconds; the last known value when that fails. */
+    private suspend fun loadStorage(adapter: org.transdroid.protocol.DaemonAdapter, profileId: String): StorageInfo? {
+        val known = _ui.value.storage.takeIf { _ui.value.storageProfileId == profileId }
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (lastStorageProfileId == profileId && now - lastStorageAt < 30_000) return known
+        lastStorageProfileId = profileId
+        lastStorageAt = now
+        return try {
+            adapter.storageInfo() ?: known
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            known
+        }
+    }
+
     private suspend fun refreshNow(showSpinner: Boolean) {
         val profile = _ui.value.activeProfile ?: return
         if (showSpinner) _ui.update { it.copy(refreshing = true) }
@@ -335,9 +358,12 @@ class TorrentsViewModel(private val container: AppContainer) : ViewModel() {
             } else {
                 false
             }
+            val storage = loadStorage(adapter, profile.id)
             _ui.update {
                 if (it.activeProfile?.id != profile.id) it
                 else it.copy(
+                    storage = storage,
+                    storageProfileId = profile.id,
                     torrents = torrents,
                     // Torrents removed elsewhere drop out of the selection
                     selection = it.selection.intersect(torrents.mapTo(HashSet()) { t -> t.id }),

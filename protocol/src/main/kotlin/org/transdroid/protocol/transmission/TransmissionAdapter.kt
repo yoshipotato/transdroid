@@ -47,6 +47,7 @@ import org.transdroid.protocol.DaemonConfig
 import org.transdroid.protocol.DaemonException
 import org.transdroid.protocol.FilePriority
 import org.transdroid.protocol.Peer
+import org.transdroid.protocol.StorageInfo
 import org.transdroid.protocol.Torrent
 import org.transdroid.protocol.TorrentFile
 import org.transdroid.protocol.TorrentStatus
@@ -75,6 +76,24 @@ class TransmissionAdapter(
         val session = request("session-get", SessionInfo.serializer())
         val version = session?.version ?: "unknown"
         return "Transmission $version" + (session?.rpcVersion?.let { " (RPC v$it)" } ?: "")
+    }
+
+    override suspend fun storageInfo(): StorageInfo? {
+        val session = request("session-get", SessionInfo.serializer()) ?: return null
+        var free = session.downloadDirFreeSpace
+        var total = -1L
+        val dir = session.downloadDir
+        if (!dir.isNullOrBlank()) {
+            try {
+                request("free-space", FreeSpace.serializer()) { put("path", dir) }?.let {
+                    if (it.sizeBytes >= 0) free = it.sizeBytes
+                    total = it.totalSize
+                }
+            } catch (e: DaemonException) {
+                // Daemons without the free-space method still report it in the session
+            }
+        }
+        return if (free >= 0) StorageInfo(free, total.takeIf { it > 0 }) else null
     }
 
     override suspend fun listTorrents(): List<Torrent> =
@@ -370,6 +389,15 @@ class TransmissionAdapter(
         val version: String? = null,
         @SerialName("rpc-version") val rpcVersion: Int? = null,
         @SerialName("alt-speed-enabled") val altSpeedEnabled: Boolean = false,
+        @SerialName("download-dir") val downloadDir: String? = null,
+        @SerialName("download-dir-free-space") val downloadDirFreeSpace: Long = -1,
+    )
+
+    @Serializable
+    private data class FreeSpace(
+        @SerialName("size-bytes") val sizeBytes: Long = -1,
+        // Not part of the Transmission spec; servers that know the disk size (HttpProxy) send it
+        @SerialName("total_size") val totalSize: Long = -1,
     )
 
     @Serializable

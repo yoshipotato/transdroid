@@ -222,3 +222,6 @@ sealed class DaemonException(message: String, cause: Throwable? = null) : Except
     /** TLS failed because the server's certificate is not trusted (e.g. self-signed). */
     class UntrustedServer(message: String, cause: Throwable? = null) : DaemonException(message, cause)
 }
+
+/** Disk space on the machine the daemon downloads to: [freeBytes] left, of [totalBytes] when the server says. */
+data class StorageInfo(val freeBytes: Long, val totalBytes: Long? = null)
