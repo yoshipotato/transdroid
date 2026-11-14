@@ -39,6 +39,8 @@ object ScreenshotSearch {
 
     /** Reads the text in the image on the device (no network); one string per block of text, top to bottom. */
     suspend fun readBlocks(context: Context, uri: Uri): List<String> {
+        // ML Kit normally starts itself through a content provider; make sure it did
+        runCatching { com.google.mlkit.common.sdkinternal.MlKitContext.initializeIfNeeded(context.applicationContext) }
         val image = loadImage(context, uri)
         val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
         try {

@@ -282,6 +282,7 @@
     <string name="settings_screenshot_quality_hint">Added to the search when you share a screenshot of an episode (for example a calendar reminder) to Transdroid, such as 1080p. Leave empty to add nothing.</string>
     <string name="ocr_reading">Reading the screenshot…</string>
     <string name="ocr_failed">Couldn\'t read the screenshot (%1$s)</string>
+    <string name="ocr_failed_title">Couldn\'t read the screenshot</string>
     <string name="ocr_no_text">No text found in the screenshot</string>
     <string name="settings_name_trims">Text to hide from torrent names</string>
     <string name="settings_name_trims_none">Nothing is hidden</string>

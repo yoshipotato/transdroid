@@ -24,6 +24,13 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
@@ -32,6 +39,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.core.content.IntentCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -60,6 +69,8 @@ class MainActivity : ComponentActivity() {
     private var pendingTorrentUrl by mutableStateOf<String?>(null)
     private var pendingOpenAddTorrent by mutableStateOf(false)
     private var pendingSearch by mutableStateOf<PendingSearch?>(null)
+    /** Details of why a shared screenshot couldn't be read, shown in a dialog that can be copied from. */
+    private var ocrError by mutableStateOf<String?>(null)
 
     @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -84,6 +95,22 @@ class MainActivity : ComponentActivity() {
             val scales by fontScales.collectAsState(initial = ListFontScales())
             val nameTrims by settings.nameTrims.collectAsState(initial = SettingsRepository.DEFAULT_NAME_TRIMS)
             TransdroidTheme {
+                ocrError?.let { details ->
+                    AlertDialog(
+                        onDismissRequest = { ocrError = null },
+                        title = { Text(stringResource(R.string.ocr_failed_title)) },
+                        text = {
+                            SelectionContainer {
+                                Text(
+                                    details,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                                )
+                            }
+                        },
+                        confirmButton = { TextButton(onClick = { ocrError = null }) { Text(stringResource(R.string.meta_done)) } },
+                    )
+                }
                 val windowSizeClass = calculateWindowSizeClass(this)
                 CompositionLocalProvider(LocalListFontScales provides scales, LocalNameTrims provides nameTrims) {
                     TransdroidApp(
@@ -139,6 +166,19 @@ class MainActivity : ComponentActivity() {
         outState.putBoolean(STATE_PENDING_OPEN_ADD_TORRENT, pendingOpenAddTorrent)
     }
 
+    /** The exception chain with the top of each stack trace, for the error dialog. */
+    private fun describe(error: Throwable): String = buildString {
+        var current: Throwable? = error
+        var depth = 0
+        while (current != null && depth < 3) {
+            appendLine("${current.javaClass.name}: ${current.message}")
+            current.stackTrace.take(10).forEach { appendLine("  at $it") }
+            current = current.cause
+            depth++
+            if (current != null) appendLine("Caused by:")
+        }
+    }.take(3500)
+
     /** A shared image is read with on-device OCR; the show and episode in it become a search. */
     private fun searchFromSharedScreenshot(intent: Intent?) {
         if (intent?.action != Intent.ACTION_SEND || intent.type?.startsWith("image/") != true) return
@@ -151,8 +191,7 @@ class MainActivity : ComponentActivity() {
                 throw e
             } catch (e: Exception) {
                 Log.e("MainActivity", "Reading the shared screenshot failed", e)
-                val reason = (e.cause ?: e).let { "${it.javaClass.simpleName}: ${it.message}" }
-                Toast.makeText(this@MainActivity, getString(R.string.ocr_failed, reason), Toast.LENGTH_LONG).show()
+                ocrError = describe(e)
                 return@launch
             }
             val quality = appContainer.settingsRepository.screenshotQuality.first()
