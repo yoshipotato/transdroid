@@ -17,7 +17,9 @@
 package org.transdroid
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -29,13 +31,18 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.core.content.IntentCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.transdroid.metasearch.ActivityHolder
+import org.transdroid.ocr.PendingSearch
+import org.transdroid.ocr.ScreenshotSearch
 import org.transdroid.ui.TransdroidApp
 import org.transdroid.data.SettingsRepository
 import org.transdroid.ui.theme.ListFontScales
@@ -51,6 +58,7 @@ class MainActivity : ComponentActivity() {
 
     private var pendingTorrentUrl by mutableStateOf<String?>(null)
     private var pendingOpenAddTorrent by mutableStateOf(false)
+    private var pendingSearch by mutableStateOf<PendingSearch?>(null)
 
     @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -65,6 +73,7 @@ class MainActivity : ComponentActivity() {
             pendingTorrentUrl = savedInstanceState.getString(STATE_PENDING_TORRENT_URL)
             pendingOpenAddTorrent = savedInstanceState.getBoolean(STATE_PENDING_OPEN_ADD_TORRENT)
         }
+        if (savedInstanceState == null) searchFromSharedScreenshot(intent)
         lifecycleScope.launch { publishWidgetPreviews(applicationContext) }
         val settings = appContainer.settingsRepository
         val fontScales = combine(settings.nameFontScale, settings.detailFontScale) { name, details ->
@@ -82,6 +91,8 @@ class MainActivity : ComponentActivity() {
                         onPendingTorrentUrlConsumed = { pendingTorrentUrl = null },
                         pendingOpenAddTorrent = pendingOpenAddTorrent,
                         onPendingOpenAddTorrentConsumed = { pendingOpenAddTorrent = false },
+                        pendingSearch = pendingSearch,
+                        onPendingSearchConsumed = { pendingSearch = null },
                     )
                 }
             }
@@ -115,6 +126,7 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         extractTorrentUrl(intent)?.let { pendingTorrentUrl = it }
+        searchFromSharedScreenshot(intent)
         if (intent.getBooleanExtra(EXTRA_OPEN_ADD_TORRENT, false)) {
             pendingOpenAddTorrent = true
         }
@@ -124,6 +136,30 @@ class MainActivity : ComponentActivity() {
         super.onSaveInstanceState(outState)
         outState.putString(STATE_PENDING_TORRENT_URL, pendingTorrentUrl)
         outState.putBoolean(STATE_PENDING_OPEN_ADD_TORRENT, pendingOpenAddTorrent)
+    }
+
+    /** A shared image is read with on-device OCR; the show and episode in it become a search. */
+    private fun searchFromSharedScreenshot(intent: Intent?) {
+        if (intent?.action != Intent.ACTION_SEND || intent.type?.startsWith("image/") != true) return
+        val uri = IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java) ?: return
+        Toast.makeText(this, R.string.ocr_reading, Toast.LENGTH_SHORT).show()
+        lifecycleScope.launch {
+            val blocks = try {
+                ScreenshotSearch.readBlocks(applicationContext, uri)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Toast.makeText(this@MainActivity, R.string.ocr_failed, Toast.LENGTH_LONG).show()
+                return@launch
+            }
+            val quality = appContainer.settingsRepository.screenshotQuality.first()
+            val search = ScreenshotSearch.buildSearch(blocks, quality)
+            if (search == null) {
+                Toast.makeText(this@MainActivity, R.string.ocr_no_text, Toast.LENGTH_LONG).show()
+            } else {
+                pendingSearch = search
+            }
+        }
     }
 
     /** Pulls a magnet link, torrent URL or .torrent content URI out of VIEW/SEND intents. */

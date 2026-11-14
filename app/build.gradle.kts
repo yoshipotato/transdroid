@@ -100,6 +100,8 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.jsoup)
     implementation(libs.androidx.webkit)
+    // On-device OCR for searching from a shared screenshot
+    implementation(libs.mlkit.text.recognition)
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)

@@ -53,6 +53,15 @@ class SettingsRepository(private val context: Context) {
     private val notifiedUpdateCodeKey = intPreferencesKey("notified_update_code")
     private val nameFontScaleKey = floatPreferencesKey("name_font_scale")
     private val detailFontScaleKey = floatPreferencesKey("detail_font_scale")
+    private val screenshotQualityKey = androidx.datastore.preferences.core.stringPreferencesKey("screenshot_quality")
+
+    /** Added to the search for a show recognised in a shared screenshot, e.g. "1080p". Blank adds nothing. */
+    val screenshotQuality: Flow<String> = context.settingsDataStore.data.map { it[screenshotQualityKey] ?: DEFAULT_SCREENSHOT_QUALITY }
+
+    suspend fun setScreenshotQuality(quality: String) {
+        context.settingsDataStore.edit { it[screenshotQualityKey] = quality.trim() }
+    }
+
     private val nameTrimsKey = androidx.datastore.preferences.core.stringPreferencesKey("name_trims")
 
     /** Texts to cut off the start of torrent names on the list (e.g. a tracker's advertising prefix). */
@@ -236,6 +245,7 @@ class SettingsRepository(private val context: Context) {
         private val summaryJson = Json { ignoreUnknownKeys = true }
         const val DEFAULT_POLL_INTERVAL_SECONDS = 5
         const val FONT_SCALE_MIN = 0.7f
+        const val DEFAULT_SCREENSHOT_QUALITY = "1080p"
         val DEFAULT_NAME_TRIMS = listOf("www.UIndex.org")
         const val FONT_SCALE_MAX = 1.8f
         val POLL_INTERVAL_OPTIONS = listOf(3, 5, 10, 30, 60)

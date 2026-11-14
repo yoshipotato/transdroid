@@ -384,6 +384,8 @@ fun SettingsScreen(
                     )
                     val nameTrims by viewModel.nameTrims.collectAsStateWithLifecycle()
                     NameTrimSetting(trims = nameTrims, onSave = viewModel::setNameTrims)
+                    val screenshotQuality by viewModel.screenshotQuality.collectAsStateWithLifecycle()
+                    ScreenshotQualitySetting(quality = screenshotQuality, onSave = viewModel::setScreenshotQuality)
                     if (updateCheckAvailable) {
                         val checkUpdates by viewModel.checkUpdates.collectAsStateWithLifecycle()
                         SettingsRow(
@@ -707,6 +709,45 @@ private fun SendReportDialog(onDismiss: () -> Unit, onSend: (includeLog: Boolean
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.details_cancel)) }
         },
     )
+}
+
+@Composable
+internal fun ScreenshotQualitySetting(quality: String, onSave: (String) -> Unit) {
+    var editing by remember { mutableStateOf(false) }
+    Column(Modifier.fillMaxWidth().clickable { editing = true }.padding(horizontal = 16.dp, vertical = 12.dp)) {
+        Text(stringResource(R.string.settings_screenshot_quality), style = MaterialTheme.typography.bodyLarge)
+        Text(
+            quality.ifBlank { stringResource(R.string.settings_screenshot_quality_none) },
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+    if (editing) {
+        var text by remember { mutableStateOf(quality) }
+        AlertDialog(
+            onDismissRequest = { editing = false },
+            title = { Text(stringResource(R.string.settings_screenshot_quality)) },
+            text = {
+                Column {
+                    Text(
+                        stringResource(R.string.settings_screenshot_quality_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    androidx.compose.material3.OutlinedTextField(
+                        value = text,
+                        onValueChange = { text = it },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { onSave(text); editing = false }) { Text(stringResource(R.string.settings_name_trims_save)) }
+            },
+            dismissButton = { TextButton(onClick = { editing = false }) { Text(stringResource(R.string.meta_cancel)) } },
+        )
+    }
 }
 
 @Composable

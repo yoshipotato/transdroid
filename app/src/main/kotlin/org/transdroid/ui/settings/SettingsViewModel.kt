@@ -258,6 +258,13 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch { container.settingsRepository.setNameFontScale(scale) }
     }
 
+    val screenshotQuality: StateFlow<String> = container.settingsRepository.screenshotQuality
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), org.transdroid.data.SettingsRepository.DEFAULT_SCREENSHOT_QUALITY)
+
+    fun setScreenshotQuality(quality: String) {
+        viewModelScope.launch { container.settingsRepository.setScreenshotQuality(quality) }
+    }
+
     val nameTrims: StateFlow<List<String>> = container.settingsRepository.nameTrims
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), org.transdroid.data.SettingsRepository.DEFAULT_NAME_TRIMS)
 

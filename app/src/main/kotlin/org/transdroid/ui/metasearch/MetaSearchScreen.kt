@@ -124,8 +124,11 @@ fun MetaSearchScreen(
         viewModel.messages.collect { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
     }
     LaunchedEffect(Unit) {
-        focusRequester.requestFocus()
-        keyboard?.show()
+        // Coming from a screenshot, the search is already running: don't cover the results with the keyboard
+        if (!viewModel.ui.value.searched) {
+            focusRequester.requestFocus()
+            keyboard?.show()
+        }
     }
     // The proxy may have been set up (or removed) while the app was in the background
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.refreshProxy() }

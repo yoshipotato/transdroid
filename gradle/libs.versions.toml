@@ -9,6 +9,7 @@ maxmindDb = "2.1.0"
 xmlutil = "1.0.2.1"
 jsoup = "1.17.2"
 webkit = "1.12.1"
+mlkitText = "16.0.1"
 
 coreKtx = "1.19.1"
 activityCompose = "1.13.0"
@@ -31,6 +32,7 @@ okhttp-mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver",
 okhttp-tls = { group = "com.squareup.okhttp3", name = "okhttp-tls", version.ref = "okhttp" }
 maxmind-db = { group = "com.maxmind.db", name = "maxmind-db", version.ref = "maxmindDb" }
 jsoup = { group = "org.jsoup", name = "jsoup", version.ref = "jsoup" }
+mlkit-text-recognition = { group = "com.google.mlkit", name = "text-recognition", version.ref = "mlkitText" }
 androidx-webkit = { group = "androidx.webkit", name = "webkit", version.ref = "webkit" }
 xmlutil-core = { group = "io.github.pdvrieze.xmlutil", name = "core", version.ref = "xmlutil" }
 

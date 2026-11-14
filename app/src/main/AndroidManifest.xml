@@ -44,6 +44,12 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="text/plain" />
             </intent-filter>
+            <!-- Search for the show named in a shared screenshot -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
             <!-- Open .torrent files from file managers and browsers -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />

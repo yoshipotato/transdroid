@@ -43,6 +43,7 @@ import androidx.navigation.navArgument
 import org.transdroid.ui.add.AddTorrentScreen
 import org.transdroid.ui.rss.RssScreen
 import org.transdroid.ui.rss.RssViewModel
+import org.transdroid.ocr.PendingSearch
 import org.transdroid.ui.metasearch.MetaSearchScreen
 import org.transdroid.ui.metasearch.MetaSearchViewModel
 import org.transdroid.ui.settings.AboutScreen
@@ -85,6 +86,8 @@ fun TransdroidApp(
     onPendingTorrentUrlConsumed: () -> Unit,
     pendingOpenAddTorrent: Boolean = false,
     onPendingOpenAddTorrentConsumed: () -> Unit = {},
+    pendingSearch: PendingSearch? = null,
+    onPendingSearchConsumed: () -> Unit = {},
 ) {
     val appContext = LocalContext.current.applicationContext
     val navController = rememberNavController()
@@ -92,6 +95,15 @@ fun TransdroidApp(
     val settingsViewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.Factory)
     val rssViewModel: RssViewModel = viewModel(factory = RssViewModel.Factory)
     val metaSearchViewModel: MetaSearchViewModel = viewModel(factory = MetaSearchViewModel.Factory)
+
+    // A search worked out from a shared screenshot: open the search screen and, when a show was recognised, run it
+    LaunchedEffect(pendingSearch) {
+        val search = pendingSearch ?: return@LaunchedEffect
+        onPendingSearchConsumed()
+        metaSearchViewModel.setQuery(search.query)
+        if (search.autoRun) metaSearchViewModel.search(search.query)
+        navController.navigate(Routes.SEARCH) { launchSingleTop = true }
+    }
 
     // The widget's Add button opens a blank add screen (Routes.add(null)); an actual shared
     // magnet/torrent URL always takes priority if somehow both arrive on the same intent.
