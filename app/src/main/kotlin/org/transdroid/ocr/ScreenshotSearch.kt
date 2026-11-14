@@ -71,7 +71,18 @@ object ScreenshotSearch {
         InputImage.fromBitmap(bitmap, 0)
     }
 
-    private val episode = Regex("""\bS\d{1,2}\s?E\d{1,3}\b""", RegexOption.IGNORE_CASE)
+    // OCR often reads the digits of "S01E04" as letters in this font (SO1E04, S0lE04), so O, I and l count as digits too
+    private val episode = Regex(
+        """\bS\s?([0-9OIl|]{1,2})\s?E\s?([0-9OIl|]{1,3})(?![A-Za-z0-9])""",
+        RegexOption.IGNORE_CASE,
+    )
+
+    /** "SO1E04" -> "S01E04"; null when it doesn't contain at least two real digits (so words like "Sole" don't count). */
+    private fun episodeCode(match: MatchResult): String? {
+        if (match.value.count { it in '0'..'9' } < 2) return null
+        fun digits(part: String) = part.map { if (it in "OoIil|") (if (it in "Oo") '0' else '1') else it }.joinToString("")
+        return "S" + digits(match.groupValues[1]) + "E" + digits(match.groupValues[2])
+    }
     private val subjectPrefix = Regex(
         """^\s*(?:updated\s+)?(?:notification|reminder|invitation|event|alert)\s*:\s*""",
         RegexOption.IGNORE_CASE,
@@ -88,25 +99,23 @@ object ScreenshotSearch {
         // A long subject can be split over several text blocks, so first look at all the text together,
         // starting after the last "Notification:"-style prefix before the episode code
         val all = blocks.joinToString(" ")
-        episode.find(all)?.let { match ->
+        episode.findAll(all).firstNotNullOfOrNull { m -> episodeCode(m)?.let { m to it } }?.let { (match, code) ->
             val before = all.substring(0, match.range.first)
             val prefix = anyPrefix.findAll(before).lastOrNull()
             if (prefix != null) {
                 val title = before.substring(prefix.range.last + 1).trim().trimEnd('-', '–', '—', ':', ' ')
                 if (title.isNotEmpty()) {
-                    val code = match.value.replace(" ", "").uppercase()
                     return PendingSearch(listOf(title, code, quality.trim()).filter { it.isNotEmpty() }.joinToString(" "), autoRun = true)
                 }
             }
         }
         for (block in blocks) {
-            val match = episode.find(block) ?: continue
+            val (match, code) = episode.findAll(block).firstNotNullOfOrNull { m -> episodeCode(m)?.let { m to it } } ?: continue
             val title = block.substring(0, match.range.first)
                 .replace(subjectPrefix, "")
                 .trim()
                 .trimEnd('-', '–', '—', ':', ' ')
             if (title.isEmpty()) continue
-            val code = match.value.replace(" ", "").uppercase()
             val query = listOf(title, code, quality.trim()).filter { it.isNotEmpty() }.joinToString(" ")
             return PendingSearch(query, autoRun = true)
         }
